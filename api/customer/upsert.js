@@ -65,7 +65,17 @@ export default async function handler(req, res) {
 
     await db`INSERT INTO rewards (pet_codeword, points) VALUES (${codeword}, 0) ON CONFLICT (pet_codeword) DO NOTHING`;
 
-    return sendJson(res, 200, { ok: true, codeword });
+    // Echo what was accepted (POST does not re-query the full row; use GET /api/account for that).
+    return sendJson(res, 200, {
+      ok: true,
+      codeword,
+      saved: {
+        customerNames: names,
+        customerName: customerName,
+        defaultCompanyNeed: Boolean(body.defaultCompanyNeed),
+        petDisplayName: String(body.petDisplayName || codeword).trim()
+      }
+    });
   } catch (error) {
     return sendJson(res, 500, { ok: false, error: error.message });
   }

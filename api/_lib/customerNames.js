@@ -1,12 +1,19 @@
+import { rowVal } from "./petsRow.js";
+
 /**
  * JSON array in DB column `customer_names` (TEXT). Falls back to `customer_name` (joined) for old rows.
+ * Accepts snake_case or camelCase row keys (some Neon/Node paths differ).
  */
 export function customerNamesFromRow(row) {
   if (!row) return [];
-  if (row.customer_names != null && row.customer_names !== "") {
+  const arrDirect = rowVal(row, "customerNames", "customer_names");
+  if (Array.isArray(arrDirect) && arrDirect.length) {
+    return arrDirect.map((s) => String(s).trim()).filter(Boolean);
+  }
+  const rawStr = arrDirect;
+  if (rawStr != null && rawStr !== "") {
     try {
-      const raw = row.customer_names;
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const parsed = typeof rawStr === "string" ? JSON.parse(rawStr) : rawStr;
       if (Array.isArray(parsed) && parsed.length) {
         return parsed.map((s) => String(s).trim()).filter(Boolean);
       }
@@ -14,7 +21,7 @@ export function customerNamesFromRow(row) {
       // fall through
     }
   }
-  const c = String(row?.customer_name ?? row?.customerName ?? "").trim();
+  const c = String(rowVal(row, "customer_name", "customerName") ?? "").trim();
   return c ? [c] : [];
 }
 

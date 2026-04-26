@@ -1,5 +1,6 @@
 import { customerNamesFromRow, joinedFromNames } from "./customerNames.js";
 import { sql } from "./db.js";
+import { boolFromRow, rowVal } from "./petsRow.js";
 
 export async function getAccountSnapshot(codeword) {
   const db = sql();
@@ -63,27 +64,29 @@ export async function getAccountSnapshot(codeword) {
   const nameParts = customerNamesFromRow(customer);
   const nameJoined = joinedFromNames(nameParts);
 
+  const ad = rowVal(customer, "age_reference_date", "ageReferenceDate");
+  const yRaw = rowVal(customer, "age_reference_years", "ageReferenceYears");
   return {
     customer: {
       customerName: nameJoined,
       customerNames: nameParts,
-      petCodeword: customer.codeword,
-      petDisplayName: customer.pet_display_name,
-      baseProfile: Number(customer.base_profile),
-      defaultCompanyNeed: Boolean(customer.default_company_need),
-      ageReferenceYears: customer.age_reference_years,
-      ageReferenceDate: customer.age_reference_date ? new Date(customer.age_reference_date).toISOString() : null,
-      ownerEmail: customer.owner_email || "",
-      ownerPhone: customer.owner_phone || "",
-      emergencyPhone: customer.emergency_phone || "",
-      vetAddress: customer.vet_address || "",
-      likes: customer.likes || "",
-      dislikes: customer.dislikes || "",
-      allergies: customer.allergies || "",
-      friends: customer.friends || "",
-      medicalNeeds: customer.medical_needs || "",
-      medicalHistory: customer.medical_history || "",
-      profileImage: customer.profile_image || ""
+      petCodeword: String(rowVal(customer, "codeword", "petCodeword") ?? customer.codeword ?? ""),
+      petDisplayName: String(rowVal(customer, "pet_display_name", "petDisplayName") ?? "").trim(),
+      baseProfile: Number(rowVal(customer, "base_profile", "baseProfile") ?? 40),
+      defaultCompanyNeed: boolFromRow(rowVal(customer, "default_company_need", "defaultCompanyNeed")),
+      ageReferenceYears: yRaw != null && yRaw !== "" && Number.isFinite(Number(yRaw)) ? Number(yRaw) : null,
+      ageReferenceDate: ad ? new Date(ad).toISOString() : null,
+      ownerEmail: String(rowVal(customer, "owner_email", "ownerEmail") ?? "").trim(),
+      ownerPhone: String(rowVal(customer, "owner_phone", "ownerPhone") ?? "").trim(),
+      emergencyPhone: String(rowVal(customer, "emergency_phone", "emergencyPhone") ?? "").trim(),
+      vetAddress: String(rowVal(customer, "vet_address", "vetAddress") ?? "").trim(),
+      likes: String(rowVal(customer, "likes", "likes") ?? "").trim(),
+      dislikes: String(rowVal(customer, "dislikes", "dislikes") ?? "").trim(),
+      allergies: String(rowVal(customer, "allergies", "allergies") ?? "").trim(),
+      friends: String(rowVal(customer, "friends", "friends") ?? "").trim(),
+      medicalNeeds: String(rowVal(customer, "medical_needs", "medicalNeeds") ?? "").trim(),
+      medicalHistory: String(rowVal(customer, "medical_history", "medicalHistory") ?? "").trim(),
+      profileImage: String(rowVal(customer, "profile_image", "profileImage") ?? "").trim()
     },
     ledger: ledgerWithBalance,
     stays,
