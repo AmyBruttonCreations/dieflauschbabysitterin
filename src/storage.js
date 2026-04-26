@@ -1,5 +1,9 @@
 const KEY = "flausch_v1_data";
 
+// Account read/write (customer + snapshot) use Postgres only — no flausch_v1_data fallback, so
+// the UI is never "lying" with browser-only data after a failed save. Ledger/stay/reward
+// can still use local fallbacks for now; local copy is also read for syncLocalCustomersToCloud.
+
 const initial = {
   customers: {},
   ledger: {},
@@ -177,10 +181,18 @@ function localAddStay(codeword, stay) {
   return data.stays[key][data.stays[key].length - 1];
 }
 
+const EMPTY_SNAPSHOT = {
+  customer: null,
+  ledger: [],
+  stays: [],
+  balance: 0,
+  rewards: { points: 0, redemptions: [] }
+};
+
 /**
- * Tries to save to Postgres, then re-fetch account. On server failure, falls back to
- * localStorage and sets serverError so the UI can warn (e.g. missing `customer_names` in DB).
- * @returns {{ customer: object, serverError: string | null }}
+ * Saves to Postgres only — does not write flausch_v1_data. On failure, customer is null and
+ * serverError is set.
+ * @returns {{ customer: object | null, serverError: string | null }}
  */
 export async function upsertCustomer(input) {
   const payload = {
@@ -195,12 +207,12 @@ export async function upsertCustomer(input) {
       return { customer: c, serverError: null };
     }
     return {
-      customer: localUpsertCustomer(input),
+      customer: null,
       serverError: "Server returned an empty customer after save. Check the database and /api/health."
     };
   } catch (e) {
     const err = (e && e.message) || String(e);
-    return { customer: localUpsertCustomer(input), serverError: err };
+    return { customer: null, serverError: err };
   }
 }
 
@@ -211,9 +223,9 @@ export async function getCustomerByCodeword(codeword) {
     const out = await callApi(`/api/account?codeword=${encodeURIComponent(key)}`);
     if (out?.snapshot?.customer) return out.snapshot.customer;
   } catch {
-    // fallback below
+    return null;
   }
-  return localGetCustomerByCodeword(key);
+  return null;
 }
 
 export async function addLedgerEntry(codeword, invoiceAmount, paidAmount) {
@@ -246,14 +258,14 @@ export async function redeemReward(codeword, rewardType) {
 
 export async function getAccountSnapshot(codeword) {
   const key = (codeword || "").toLowerCase();
-  if (!key) return localGetAccountSnapshot(key);
+  if (!key) return { ...EMPTY_SNAPSHOT };
   try {
     const out = await callApi(`/api/account?codeword=${encodeURIComponent(key)}`);
     if (out?.snapshot) return out.snapshot;
   } catch {
-    // fallback below
+    // no local fallback: empty snapshot, UI can use in-repo defaults where applicable
   }
-  return localGetAccountSnapshot(key);
+  return { ...EMPTY_SNAPSHOT };
 }
 
 export async function addStay(codeword, stay) {
