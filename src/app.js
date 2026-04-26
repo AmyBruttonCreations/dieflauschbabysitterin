@@ -116,10 +116,11 @@ function writeUiState(patch) {
   localStorage.setItem(UI_STATE_KEY, JSON.stringify({ ...current, ...patch }));
 }
 
-function hasKnownPetProfile(codewordRaw) {
+async function hasKnownPetProfile(codewordRaw) {
   const key = (codewordRaw || "").trim().toLowerCase();
   if (!key) return false;
-  return Boolean(getCustomerByCodeword(key) || DEFAULT_PET_PROFILE_DETAILS[key] || LEGACY_PET_PROFILES[key]);
+  const customer = await getCustomerByCodeword(key);
+  return Boolean(customer || DEFAULT_PET_PROFILE_DETAILS[key] || LEGACY_PET_PROFILES[key]);
 }
 
 function setAdminFormValues(customer) {
@@ -154,13 +155,13 @@ function resolveCurrentPetCodeword() {
   return (ui.lastPetCodeword || "").toLowerCase();
 }
 
-function prefillAdminFormForCurrentPet() {
+async function prefillAdminFormForCurrentPet() {
   const codeword = resolveCurrentPetCodeword();
   if (!codeword) {
     setAdminFormValues(null);
     return;
   }
-  const saved = getCustomerByCodeword(codeword);
+  const saved = await getCustomerByCodeword(codeword);
   const hydrated = hydrateCustomerProfile(
     saved || { petCodeword: codeword, customerName: "" },
     codeword
@@ -168,17 +169,17 @@ function prefillAdminFormForCurrentPet() {
   setAdminFormValues(hydrated);
 }
 
-function renderAccount(codeword) {
-  const snap = getAccountSnapshot(codeword);
+async function renderAccount(codeword) {
+  const snap = await getAccountSnapshot(codeword);
   byId("accountOutput").textContent = JSON.stringify(snap, null, 2);
 }
 
-function updatePetAccountButton(petNameRaw) {
+async function updatePetAccountButton(petNameRaw) {
   const petName = (petNameRaw || "").trim();
-  const customer = getCustomerByCodeword(petName);
+  const customer = await getCustomerByCodeword(petName);
   const accountBtn = byId("viewPetAccountBtn");
 
-  if (hasKnownPetProfile(petName)) {
+  if (await hasKnownPetProfile(petName)) {
     activePetCodeword = (customer?.petCodeword || petName).toLowerCase();
     accountBtn.textContent = `Check out ${activePetCodeword}'s account`;
     accountBtn.classList.remove("hidden");
@@ -189,19 +190,19 @@ function updatePetAccountButton(petNameRaw) {
   accountBtn.classList.add("hidden");
 }
 
-function updateCompanyQuestionVisibility(petNameRaw) {
+async function updateCompanyQuestionVisibility(petNameRaw) {
   const petName = (petNameRaw || "").trim();
-  const knownProfile = hasKnownPetProfile(petName);
+  const knownProfile = await hasKnownPetProfile(petName);
   const question = byId("companyNeedQuestion");
   const knownNote = byId("companyNeedKnownNote");
   question.classList.toggle("hidden", knownProfile);
   knownNote.classList.toggle("hidden", !knownProfile);
 }
 
-function syncCalculatorOwnerFromPet(petNameRaw) {
+async function syncCalculatorOwnerFromPet(petNameRaw) {
   const petName = (petNameRaw || "").trim();
   const ownerField = byId("petParentName");
-  const customer = getCustomerByCodeword(petName);
+  const customer = await getCustomerByCodeword(petName);
   if (customer) {
     ownerField.value = customer.customerName || "";
     ownerField.readOnly = true;
@@ -222,13 +223,13 @@ function togglePetPageMode(showPetPage) {
   byId("petAccountPage").classList.toggle("hidden", !showPetPage);
 }
 
-function openPetAccountPage(codewordRaw, pushHash = true) {
+async function openPetAccountPage(codewordRaw, pushHash = true) {
   const codeword = (codewordRaw || "").trim().toLowerCase();
-  if (!codeword || !hasKnownPetProfile(codeword)) return;
+  if (!codeword || !(await hasKnownPetProfile(codeword))) return;
   activePetCodeword = codeword;
   writeUiState({ lastPetCodeword: codeword });
 
-  const snap = getAccountSnapshot(activePetCodeword);
+  const snap = await getAccountSnapshot(activePetCodeword);
   const customer = hydrateCustomerProfile(
     snap.customer || { customerName: "Unknown pet parent", petCodeword: activePetCodeword },
     activePetCodeword
@@ -384,13 +385,13 @@ function closePetAccountPage(pushHash = true) {
   if (pushHash) window.location.hash = "";
 }
 
-byId("calcBtn").addEventListener("click", () => {
+byId("calcBtn").addEventListener("click", async () => {
   const petName = byId("petName").value.trim();
   const ownerInput = byId("petParentName").value.trim();
   const discountCode = byId("discountCode").value.trim().toLowerCase();
-  const customer = getCustomerByCodeword(petName);
+  const customer = await getCustomerByCodeword(petName);
   const hydrated = hydrateCustomerProfile(customer || { petCodeword: petName }, petName);
-  const knownProfile = hasKnownPetProfile(petName);
+  const knownProfile = await hasKnownPetProfile(petName);
   const ownerName = customer?.customerName || ownerInput;
   const baseline =
     hydrated?.baseProfile ||
@@ -481,7 +482,7 @@ byId("calcBtn").addEventListener("click", () => {
       byId("quoteOutput").classList.remove("hidden");
     }
 
-    updatePetAccountButton(petName);
+    await updatePetAccountButton(petName);
   } catch (err) {
     byId("quoteOutput").textContent = `Error: ${err.message}`;
     byId("quoteOutput").classList.remove("hidden");
@@ -501,9 +502,9 @@ byId("backToEstimateBtn").addEventListener("click", () => {
   byId("quoteOutput").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-byId("viewPetAccountBtn").addEventListener("click", () => {
+byId("viewPetAccountBtn").addEventListener("click", async () => {
   if (!activePetCodeword) return;
-  openPetAccountPage(activePetCodeword, true);
+  await openPetAccountPage(activePetCodeword, true);
 });
 
 byId("closePetAccountBtn").addEventListener("click", () => {
@@ -511,7 +512,7 @@ byId("closePetAccountBtn").addEventListener("click", () => {
   byId("calculator").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-byId("saveCustomerBtn").addEventListener("click", () => {
+byId("saveCustomerBtn").addEventListener("click", async () => {
   const customerName = byId("customerName").value.trim();
   const petCodeword = byId("petCodeword").value.trim();
   const petDisplayName = byId("petDisplayName").value.trim();
@@ -533,7 +534,7 @@ byId("saveCustomerBtn").addEventListener("click", () => {
     byId("accountOutput").textContent = "Please provide customer name and pet codeword.";
     return;
   }
-  upsertCustomer({
+  await upsertCustomer({
     customerName,
     petCodeword,
     petDisplayName,
@@ -553,10 +554,10 @@ byId("saveCustomerBtn").addEventListener("click", () => {
     profileImage
   });
   writeUiState({ lastPetCodeword: petCodeword.toLowerCase() });
-  renderAccount(petCodeword);
+  await renderAccount(petCodeword);
 });
 
-byId("addLedgerBtn").addEventListener("click", () => {
+byId("addLedgerBtn").addEventListener("click", async () => {
   const petCodeword = byId("petCodeword").value.trim() || byId("petName").value.trim();
   const invoiceAmount = Number(byId("invoiceAmount").value);
   const paidAmount = Number(byId("paidAmount").value);
@@ -564,11 +565,11 @@ byId("addLedgerBtn").addEventListener("click", () => {
     byId("accountOutput").textContent = "Provide codeword + numeric invoice and paid amounts.";
     return;
   }
-  addLedgerEntry(petCodeword, invoiceAmount, paidAmount);
-  renderAccount(petCodeword);
+  await addLedgerEntry(petCodeword, invoiceAmount, paidAmount);
+  await renderAccount(petCodeword);
 });
 
-byId("addStayBtn").addEventListener("click", () => {
+byId("addStayBtn").addEventListener("click", async () => {
   const petCodeword = byId("petCodeword").value.trim() || byId("petName").value.trim();
   const start = byId("stayStart").value;
   const end = byId("stayEnd").value;
@@ -578,7 +579,7 @@ byId("addStayBtn").addEventListener("click", () => {
     byId("accountOutput").textContent = "Provide pet codeword, stay start and stay end.";
     return;
   }
-  addStay(petCodeword, {
+  await addStay(petCodeword, {
     start: new Date(start).toISOString(),
     end: new Date(end).toISOString(),
     status,
@@ -586,22 +587,22 @@ byId("addStayBtn").addEventListener("click", () => {
   });
   byId("accountOutput").textContent = `Stay added for ${petCodeword}.`;
   if (activePetCodeword && activePetCodeword === petCodeword.toLowerCase() && !byId("petAccountPage").classList.contains("hidden")) {
-    openPetAccountPage(activePetCodeword, false);
+    await openPetAccountPage(activePetCodeword, false);
   }
 });
 
-byId("redeemPortraitBtn").addEventListener("click", () => {
+byId("redeemPortraitBtn").addEventListener("click", async () => {
   const petCodeword = byId("petCodeword").value.trim();
-  const out = redeemReward(petCodeword, "portrait50");
+  const out = await redeemReward(petCodeword, "portrait50");
   byId("accountOutput").textContent = JSON.stringify(out, null, 2);
-  renderAccount(petCodeword);
+  await renderAccount(petCodeword);
 });
 
-byId("redeemFreeDaysBtn").addEventListener("click", () => {
+byId("redeemFreeDaysBtn").addEventListener("click", async () => {
   const petCodeword = byId("petCodeword").value.trim();
-  const out = redeemReward(petCodeword, "free2days");
+  const out = await redeemReward(petCodeword, "free2days");
   byId("accountOutput").textContent = JSON.stringify(out, null, 2);
-  renderAccount(petCodeword);
+  await renderAccount(petCodeword);
 });
 
 (() => {
@@ -617,21 +618,21 @@ byId("redeemFreeDaysBtn").addEventListener("click", () => {
   byId("pickup").value = fmtInput(end);
 })();
 
-byId("petName").addEventListener("change", () => {
+byId("petName").addEventListener("change", async () => {
   const petName = byId("petName").value.trim();
-  syncCalculatorOwnerFromPet(petName);
-  updateCompanyQuestionVisibility(petName);
-  updatePetAccountButton(petName);
+  await syncCalculatorOwnerFromPet(petName);
+  await updateCompanyQuestionVisibility(petName);
+  await updatePetAccountButton(petName);
 });
 
-byId("petName").addEventListener("input", () => {
+byId("petName").addEventListener("input", async () => {
   const petName = byId("petName").value;
-  syncCalculatorOwnerFromPet(petName);
-  updateCompanyQuestionVisibility(petName);
-  updatePetAccountButton(petName);
+  await syncCalculatorOwnerFromPet(petName);
+  await updateCompanyQuestionVisibility(petName);
+  await updatePetAccountButton(petName);
 });
 
-byId("adminUnlockBtn").addEventListener("click", () => {
+byId("adminUnlockBtn").addEventListener("click", async () => {
   const input = byId("adminPasscode").value;
   if (input !== ADMIN_PASSCODE) {
     byId("adminState").textContent = "Wrong passcode. Admin mode is locked.";
@@ -643,29 +644,29 @@ byId("adminUnlockBtn").addEventListener("click", () => {
   byId("adminState").textContent = "Admin mode unlocked.";
   byId("adminPasscode").value = "";
   if (!byId("petAccountPage").classList.contains("hidden") && activePetCodeword) {
-    openPetAccountPage(activePetCodeword, false);
+    await openPetAccountPage(activePetCodeword, false);
   }
 });
 
-byId("adminOpenBtn").addEventListener("click", () => {
+byId("adminOpenBtn").addEventListener("click", async () => {
   byId("adminPanel").classList.remove("hidden");
-  prefillAdminFormForCurrentPet();
+  await prefillAdminFormForCurrentPet();
 });
 
 byId("adminCloseBtn").addEventListener("click", () => {
   byId("adminPanel").classList.add("hidden");
 });
 
-window.addEventListener("hashchange", () => {
+window.addEventListener("hashchange", async () => {
   const hash = window.location.hash.replace(/^#/, "");
   if (hash.startsWith("pet/")) {
-    openPetAccountPage(decodeURIComponent(hash.slice(4)), false);
+    await openPetAccountPage(decodeURIComponent(hash.slice(4)), false);
     return;
   }
   closePetAccountPage(false);
 });
 
-(() => {
+(async () => {
   const ui = readUiState();
   if (ui.adminUnlocked) {
     isAdmin = true;
@@ -675,10 +676,11 @@ window.addEventListener("hashchange", () => {
 
   const hash = window.location.hash.replace(/^#/, "");
   if (hash.startsWith("pet/")) {
-    openPetAccountPage(decodeURIComponent(hash.slice(4)), false);
+    await openPetAccountPage(decodeURIComponent(hash.slice(4)), false);
   } else {
     closePetAccountPage(false);
   }
-  syncCalculatorOwnerFromPet(byId("petName")?.value || "");
-  updateCompanyQuestionVisibility(byId("petName")?.value || "");
+  await syncCalculatorOwnerFromPet(byId("petName")?.value || "");
+  await updateCompanyQuestionVisibility(byId("petName")?.value || "");
+  await updatePetAccountButton(byId("petName")?.value || "");
 })();

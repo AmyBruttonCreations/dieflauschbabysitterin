@@ -21,7 +21,22 @@ function write(data) {
   localStorage.setItem(KEY, JSON.stringify(data));
 }
 
-export function upsertCustomer({
+async function callApi(path, options = {}) {
+  const response = await fetch(path, {
+    method: options.method || "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  if (!response.ok) {
+    throw new Error(`API ${response.status}: ${path}`);
+  }
+  return response.json();
+}
+
+function localUpsertCustomer({
   customerName,
   petCodeword,
   baseProfile,
@@ -74,12 +89,12 @@ export function upsertCustomer({
   return data.customers[key];
 }
 
-export function getCustomerByCodeword(codeword) {
+function localGetCustomerByCodeword(codeword) {
   const data = read();
   return data.customers[(codeword || "").toLowerCase()] || null;
 }
 
-export function addLedgerEntry(codeword, invoiceAmount, paidAmount) {
+function localAddLedgerEntry(codeword, invoiceAmount, paidAmount) {
   const data = read();
   const key = (codeword || "").toLowerCase();
   if (!data.ledger[key]) data.ledger[key] = [];
@@ -100,7 +115,7 @@ export function addLedgerEntry(codeword, invoiceAmount, paidAmount) {
   return entry;
 }
 
-export function redeemReward(codeword, rewardType) {
+function localRedeemReward(codeword, rewardType) {
   const data = read();
   const key = (codeword || "").toLowerCase();
   if (!data.rewards[key]) data.rewards[key] = { points: 0, redemptions: [] };
@@ -114,7 +129,7 @@ export function redeemReward(codeword, rewardType) {
   return { ok: true, points: data.rewards[key].points };
 }
 
-export function getAccountSnapshot(codeword) {
+function localGetAccountSnapshot(codeword) {
   const data = read();
   const key = (codeword || "").toLowerCase();
   const ledger = data.ledger[key] || [];
@@ -130,7 +145,7 @@ export function getAccountSnapshot(codeword) {
   };
 }
 
-export function addStay(codeword, stay) {
+function localAddStay(codeword, stay) {
   const data = read();
   const key = (codeword || "").toLowerCase();
   if (!data.stays[key]) data.stays[key] = [];
@@ -144,4 +159,90 @@ export function addStay(codeword, stay) {
   });
   write(data);
   return data.stays[key][data.stays[key].length - 1];
+}
+
+export async function upsertCustomer(input) {
+  try {
+    const payload = {
+      ...input,
+      petCodeword: (input.petCodeword || "").toLowerCase()
+    };
+    await callApi("/api/customer/upsert", { method: "POST", body: payload });
+    const snap = await callApi(`/api/account?codeword=${encodeURIComponent(payload.petCodeword)}`);
+    return snap?.snapshot?.customer || localUpsertCustomer(input);
+  } catch {
+    return localUpsertCustomer(input);
+  }
+}
+
+export async function getCustomerByCodeword(codeword) {
+  const key = (codeword || "").toLowerCase();
+  if (!key) return null;
+  try {
+    const out = await callApi(`/api/account?codeword=${encodeURIComponent(key)}`);
+    if (out?.snapshot?.customer) return out.snapshot.customer;
+  } catch {
+    // fallback below
+  }
+  return localGetCustomerByCodeword(key);
+}
+
+export async function addLedgerEntry(codeword, invoiceAmount, paidAmount) {
+  const key = (codeword || "").toLowerCase();
+  try {
+    await callApi("/api/ledger/add", {
+      method: "POST",
+      body: { petCodeword: key, invoiceAmount, paidAmount }
+    });
+    const snap = await getAccountSnapshot(key);
+    const latest = snap.ledger[snap.ledger.length - 1];
+    if (latest) return latest;
+  } catch {
+    // fallback below
+  }
+  return localAddLedgerEntry(key, invoiceAmount, paidAmount);
+}
+
+export async function redeemReward(codeword, rewardType) {
+  const key = (codeword || "").toLowerCase();
+  try {
+    return await callApi("/api/reward/redeem", {
+      method: "POST",
+      body: { petCodeword: key, rewardType }
+    });
+  } catch {
+    return localRedeemReward(key, rewardType);
+  }
+}
+
+export async function getAccountSnapshot(codeword) {
+  const key = (codeword || "").toLowerCase();
+  if (!key) return localGetAccountSnapshot(key);
+  try {
+    const out = await callApi(`/api/account?codeword=${encodeURIComponent(key)}`);
+    if (out?.snapshot) return out.snapshot;
+  } catch {
+    // fallback below
+  }
+  return localGetAccountSnapshot(key);
+}
+
+export async function addStay(codeword, stay) {
+  const key = (codeword || "").toLowerCase();
+  try {
+    const out = await callApi("/api/stay/add", {
+      method: "POST",
+      body: { petCodeword: key, ...stay }
+    });
+    return {
+      id: out.id,
+      start: stay.start,
+      end: stay.end,
+      status: stay.status || "planned",
+      notes: stay.notes || "",
+      createdAt: new Date().toISOString()
+    };
+  } catch {
+    return localAddStay(key, stay);
+  }
 }
