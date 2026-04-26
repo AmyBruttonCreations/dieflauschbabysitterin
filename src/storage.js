@@ -260,6 +260,7 @@ export async function syncLocalCustomersToCloud() {
       petDisplayName: customer.petDisplayName,
       baseProfile: customer.baseProfile,
       ageYears: customer.ageReferenceYears,
+      ageReferenceDate: customer.ageReferenceDate,
       defaultCompanyNeed: customer.defaultCompanyNeed,
       ownerEmail: customer.ownerEmail,
       ownerPhone: customer.ownerPhone,
@@ -281,4 +282,71 @@ export async function syncLocalCustomersToCloud() {
     }
   }
   return { synced, total: customers.length };
+}
+
+/**
+ * Pushes in-repo default pet profile rows to Neon when the DB has no row yet.
+ * Does not use local storage fallback for the existence check, so a flaky API does not
+ * make us skip seeding.
+ */
+export async function seedMissingBuiltInPetsInCloud(petDetailsMap, legacyBaselines) {
+  const keys = Object.keys(petDetailsMap || {});
+  let seeded = 0;
+  for (const rawKey of keys) {
+    const key = (rawKey || "").toLowerCase();
+    if (!key) continue;
+    const details = petDetailsMap[key] || petDetailsMap[rawKey] || {};
+    const hasContent =
+      String(details.petDisplayName || "").trim() ||
+      String(details.customerName || "").trim() ||
+      Number.isFinite(Number(details.ageReferenceYears)) ||
+      String(details.likes || "").trim() ||
+      String(details.medicalHistory || "").trim() ||
+      String(details.medicalNeeds || "").trim() ||
+      String(details.vetAddress || "").trim();
+    if (!hasContent) continue;
+
+    let cloudCustomer = null;
+    try {
+      const out = await callApi(`/api/account?codeword=${encodeURIComponent(key)}`);
+      cloudCustomer = out?.snapshot?.customer || null;
+    } catch {
+      return { ok: false, seeded, error: "account_fetch_failed" };
+    }
+    if (cloudCustomer) continue;
+
+    const baseProfile = Number(legacyBaselines?.[key] ?? details.baseProfile);
+    if (!Number.isFinite(baseProfile) || baseProfile <= 0) {
+      return { ok: false, seeded, error: "missing_base_profile", codeword: key };
+    }
+
+    const refRaw = String(details.ageReferenceDate || "").trim();
+    const payload = {
+      customerName: String(details.customerName || "").trim() || "Unknown pet parent",
+      petCodeword: key,
+      baseProfile,
+      defaultCompanyNeed: Boolean(details.defaultCompanyNeed),
+      petDisplayName: String(details.petDisplayName || "").trim() || key,
+      ageYears: Number.isFinite(Number(details.ageReferenceYears)) ? Number(details.ageReferenceYears) : null,
+      ageReferenceDate: refRaw,
+      ownerEmail: String(details.ownerEmail || "").trim(),
+      ownerPhone: String(details.ownerPhone || "").trim(),
+      emergencyPhone: String(details.emergencyPhone || "").trim(),
+      vetAddress: String(details.vetAddress || "").trim(),
+      likes: String(details.likes || "").trim(),
+      dislikes: String(details.dislikes || "").trim(),
+      allergies: String(details.allergies || "").trim(),
+      friends: String(details.friends || "").trim(),
+      medicalNeeds: String(details.medicalNeeds || "").trim(),
+      medicalHistory: String(details.medicalHistory || "").trim(),
+      profileImage: String(details.profileImage || "").trim()
+    };
+    try {
+      await callApi("/api/customer/upsert", { method: "POST", body: payload });
+    } catch {
+      return { ok: false, seeded, error: "upsert_failed", codeword: key };
+    }
+    seeded += 1;
+  }
+  return { ok: true, seeded };
 }

@@ -16,8 +16,9 @@ export default async function handler(req, res) {
     const ageYearsRaw = body.ageYears ?? body.ageReferenceYears;
     const ageReferenceYears = Number.isFinite(Number(ageYearsRaw)) ? Number(ageYearsRaw) : null;
     const previous = await db`SELECT age_reference_date FROM pets WHERE codeword = ${codeword} LIMIT 1`;
+    const explicitRef = toIsoStringOrNull(body.ageReferenceDate);
     const ageReferenceDate = ageReferenceYears !== null
-      ? (previous[0]?.age_reference_date || new Date().toISOString())
+      ? (explicitRef || previous[0]?.age_reference_date || new Date().toISOString())
       : null;
 
     await db`

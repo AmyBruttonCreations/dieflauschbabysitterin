@@ -5,6 +5,7 @@ import {
   getAccountSnapshot,
   getCustomerByCodeword,
   redeemReward,
+  seedMissingBuiltInPetsInCloud,
   syncLocalCustomersToCloud,
   upsertCustomer
 } from "./storage.js";
@@ -676,10 +677,14 @@ window.addEventListener("hashchange", async () => {
 
 (async () => {
   const ui = readUiState();
-  if (!ui.cloudCustomerSyncDone) {
-    const syncOut = await syncLocalCustomersToCloud();
-    if (syncOut.total === 0 || syncOut.synced > 0) {
-      writeUiState({ cloudCustomerSyncDone: true });
+  await syncLocalCustomersToCloud();
+  if (!ui.builtInPetCloudSeedV1) {
+    const seedOut = await seedMissingBuiltInPetsInCloud(
+      DEFAULT_PET_PROFILE_DETAILS,
+      LEGACY_PET_PROFILES
+    );
+    if (seedOut?.ok) {
+      writeUiState({ builtInPetCloudSeedV1: true });
     }
   }
   if (ui.adminUnlocked) {
