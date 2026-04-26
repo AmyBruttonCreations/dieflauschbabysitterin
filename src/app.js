@@ -4,6 +4,7 @@ import {
   addStay,
   getAccountSnapshot,
   getCustomerByCodeword,
+  pickCustomerNameParts,
   redeemReward,
   seedMissingBuiltInPetsInCloud,
   syncLocalCustomersToCloud,
@@ -98,16 +99,33 @@ function escAttr(s) {
     .replace(/</g, "&lt;");
 }
 
+function formatGreetingNames(names) {
+  if (!names || !names.length) return "";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return names.join(" and ");
+}
+
+function petParentHeadingHtml(customer) {
+  const names = pickCustomerNameParts(customer);
+  const label = names.length > 1 ? "Pet parents" : "Pet parent";
+  const value = names.join(" & ");
+  return `${escAttr(label)}: ${escAttr(value)}`;
+}
+
 function hydrateCustomerProfile(customer, codeword) {
   const key = (codeword || customer?.petCodeword || "").toLowerCase();
   const defaults = DEFAULT_PET_PROFILE_DETAILS[key] || {};
   const fromSaved = (customer && String(customer.profileImage || "").trim()) || "";
+  const merged = { ...defaults, ...customer, petCodeword: key || customer?.petCodeword || "" };
+  const nameParts = pickCustomerNameParts(merged);
   return {
     ...defaults,
     ...(customer || {}),
     petCodeword: key || customer?.petCodeword || "",
     petDisplayName: customer?.petDisplayName || defaults.petDisplayName || key || "Pet",
-    customerName: customer?.customerName || defaults.customerName || "Unknown pet parent",
+    customerNames: nameParts,
+    customerName: nameParts.join(" & "),
     profileImage: fromSaved || (defaults.profileImage && String(defaults.profileImage).trim()) || ""
   };
 }
@@ -133,7 +151,9 @@ async function hasKnownPetProfile(codewordRaw) {
 }
 
 function setAdminFormValues(customer) {
-  byId("customerName").value = customer?.customerName || "";
+  const nameParts = pickCustomerNameParts(customer);
+  byId("customerName").value = nameParts[0] || "";
+  byId("customerName2").value = nameParts[1] || "";
   byId("petCodeword").value = customer?.petCodeword || "";
   byId("petDisplayName").value = customer?.petDisplayName || "";
   byId("baseProfile").value = String(customer?.baseProfile ?? 40);
@@ -213,7 +233,7 @@ async function syncCalculatorOwnerFromPet(petNameRaw) {
   const ownerField = byId("petParentName");
   const customer = await getCustomerByCodeword(petName);
   if (customer) {
-    ownerField.value = customer.customerName || "";
+    ownerField.value = pickCustomerNameParts(customer).join(" & ");
     ownerField.readOnly = true;
     ownerField.title = "Autofilled from saved pet profile";
   } else {
@@ -364,7 +384,7 @@ async function openPetAccountPage(codewordRaw, pushHash = true) {
       ${avatarBlock}
       <div class="account-header-body">
         <h2 class="account-name-title title-blue">${displayName}</h2>
-        <p>Pet parent: ${customer.customerName}</p>
+        <p>${petParentHeadingHtml(customer)}</p>
       </div>
     </div>
     <h3 class="title-standard title-blue">Profile</h3>
@@ -401,7 +421,7 @@ byId("calcBtn").addEventListener("click", async () => {
   const customer = await getCustomerByCodeword(petName);
   const hydrated = hydrateCustomerProfile(customer || { petCodeword: petName }, petName);
   const knownProfile = await hasKnownPetProfile(petName);
-  const ownerName = customer?.customerName || ownerInput;
+  const ownerName = formatGreetingNames(pickCustomerNameParts(hydrated)) || ownerInput;
   const baseline =
     hydrated?.baseProfile ||
     LEGACY_PET_PROFILES[petName.toLowerCase()] ||
@@ -522,7 +542,9 @@ byId("closePetAccountBtn").addEventListener("click", () => {
 });
 
 byId("saveCustomerBtn").addEventListener("click", async () => {
-  const customerName = byId("customerName").value.trim();
+  const n1 = byId("customerName").value.trim();
+  const n2 = byId("customerName2").value.trim();
+  const customerNames = [n1, n2].filter(Boolean);
   const petCodeword = byId("petCodeword").value.trim();
   const petDisplayName = byId("petDisplayName").value.trim();
   const baseProfile = byId("baseProfile").value;
@@ -539,12 +561,14 @@ byId("saveCustomerBtn").addEventListener("click", async () => {
   const medicalNeeds = byId("petMedicalNeeds").value.trim();
   const medicalHistory = byId("petMedicalHistory").value.trim();
   const profileImage = byId("petProfileImage").value.trim();
-  if (!customerName || !petCodeword) {
-    byId("accountOutput").textContent = "Please provide customer name and pet codeword.";
+  if (!customerNames.length || !petCodeword) {
+    byId("accountOutput").textContent = "Please provide at least one pet parent name and a pet codeword.";
     return;
   }
+  const customerName = customerNames.join(" & ");
   await upsertCustomer({
     customerName,
+    customerNames,
     petCodeword,
     petDisplayName,
     baseProfile,

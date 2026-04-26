@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS pets (
   codeword TEXT PRIMARY KEY,
   customer_name TEXT NOT NULL,
+  customer_names TEXT,
   pet_display_name TEXT NOT NULL,
   base_profile NUMERIC(10,2) NOT NULL DEFAULT 40,
   default_company_need BOOLEAN NOT NULL DEFAULT FALSE,

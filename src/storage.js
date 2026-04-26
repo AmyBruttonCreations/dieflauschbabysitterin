@@ -36,8 +36,20 @@ async function callApi(path, options = {}) {
   return response.json();
 }
 
+export function pickCustomerNameParts(obj) {
+  if (!obj || typeof obj !== "object") return ["Unknown pet parent"];
+  if (Array.isArray(obj.customerNames) && obj.customerNames.length) {
+    const n = obj.customerNames.map((s) => String(s || "").trim()).filter(Boolean);
+    if (n.length) return n;
+  }
+  const s = String(obj.customerName || "").trim();
+  if (s) return [s];
+  return ["Unknown pet parent"];
+}
+
 function localUpsertCustomer({
   customerName,
+  customerNames,
   petCodeword,
   baseProfile,
   defaultCompanyNeed = false,
@@ -62,9 +74,12 @@ function localUpsertCustomer({
   const ageReferenceDate = parsedAgeYears !== null
     ? (previous.ageReferenceDate || new Date().toISOString())
     : (previous.ageReferenceDate || null);
+  const nameParts = pickCustomerNameParts({ customerName, customerNames });
+  const joined = nameParts.join(" & ");
 
   data.customers[petCodeword.toLowerCase()] = {
-    customerName,
+    customerNames: nameParts,
+    customerName: joined,
     petCodeword: key,
     petDisplayName: (petDisplayName || "").trim() || key,
     baseProfile: Number(baseProfile),
@@ -262,7 +277,8 @@ function mergeLocalCustomerForCloudSync(customer, petDetailsMap, legacyBaselines
   const key = (customer.petCodeword || "").toLowerCase();
   const defaults = stripStaysAndNonCustomerFields(petDetailsMap?.[key]);
   const merged = { ...defaults, ...customer, petCodeword: key };
-  const name = String(merged.customerName || "").trim() || "Unknown pet parent";
+  const nameParts = pickCustomerNameParts(merged);
+  const customerName = nameParts.join(" & ") || "Unknown pet parent";
   const bpRaw = Number(merged.baseProfile);
   const baseProfile = Number.isFinite(bpRaw) && bpRaw > 0
     ? bpRaw
@@ -270,7 +286,7 @@ function mergeLocalCustomerForCloudSync(customer, petDetailsMap, legacyBaselines
         const leg = Number(legacyBaselines?.[key]);
         return Number.isFinite(leg) && leg > 0 ? leg : 40;
       })();
-  return { ...merged, customerName: name, baseProfile };
+  return { ...merged, customerNames: nameParts, customerName, baseProfile };
 }
 
 export async function syncLocalCustomersToCloud(petDetailsMap, legacyBaselines) {
@@ -284,6 +300,7 @@ export async function syncLocalCustomersToCloud(petDetailsMap, legacyBaselines) 
     const key = m.petCodeword;
     const payload = {
       customerName: m.customerName,
+      customerNames: m.customerNames,
       petCodeword: key,
       petDisplayName: m.petDisplayName,
       baseProfile: m.baseProfile,
@@ -353,8 +370,10 @@ export async function seedMissingBuiltInPetsInCloud(petDetailsMap, legacyBaselin
     const displayTitle =
       String(details.petDisplayName || "").trim() ||
       (key ? key.charAt(0).toUpperCase() + key.slice(1) : key);
+    const seedNameParts = pickCustomerNameParts(details);
     const payload = {
-      customerName: String(details.customerName || "").trim() || "Unknown pet parent",
+      customerName: seedNameParts.join(" & "),
+      customerNames: seedNameParts,
       petCodeword: key,
       baseProfile,
       defaultCompanyNeed: Boolean(details.defaultCompanyNeed),

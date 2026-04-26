@@ -1,3 +1,4 @@
+import { customerNamesFromRequestBody, joinedFromNames } from "../_lib/customerNames.js";
 import { normalizeCodeword, sql, toFiniteNumber, toIsoStringOrNull } from "../_lib/db.js";
 import { methodNotAllowed, parseJsonBody, sendJson } from "../_lib/http.js";
 
@@ -7,10 +8,12 @@ export default async function handler(req, res) {
   try {
     const body = await parseJsonBody(req);
     const codeword = normalizeCodeword(body.petCodeword);
-    const customerName = String(body.customerName || "").trim();
-    if (!codeword || !customerName) {
-      return sendJson(res, 400, { ok: false, error: "customerName and petCodeword are required." });
+    const names = customerNamesFromRequestBody(body);
+    const customerName = joinedFromNames(names);
+    if (!codeword || !names.length) {
+      return sendJson(res, 400, { ok: false, error: "At least one customer name and petCodeword are required." });
     }
+    const customerNamesJson = JSON.stringify(names);
 
     const db = sql();
     const ageYearsRaw = body.ageYears ?? body.ageReferenceYears;
@@ -23,11 +26,11 @@ export default async function handler(req, res) {
 
     await db`
       INSERT INTO pets (
-        codeword, customer_name, pet_display_name, base_profile, default_company_need,
+        codeword, customer_name, customer_names, pet_display_name, base_profile, default_company_need,
         age_reference_years, age_reference_date, owner_email, owner_phone, emergency_phone,
         vet_address, likes, dislikes, allergies, friends, medical_needs, medical_history, profile_image, updated_at
       ) VALUES (
-        ${codeword}, ${customerName}, ${String(body.petDisplayName || codeword).trim()},
+        ${codeword}, ${customerName}, ${customerNamesJson}, ${String(body.petDisplayName || codeword).trim()},
         ${toFiniteNumber(body.baseProfile, 40)}, ${Boolean(body.defaultCompanyNeed)},
         ${ageReferenceYears}, ${toIsoStringOrNull(ageReferenceDate)},
         ${String(body.ownerEmail || "").trim()}, ${String(body.ownerPhone || "").trim()},
@@ -40,6 +43,7 @@ export default async function handler(req, res) {
       ON CONFLICT (codeword)
       DO UPDATE SET
         customer_name = EXCLUDED.customer_name,
+        customer_names = EXCLUDED.customer_names,
         pet_display_name = EXCLUDED.pet_display_name,
         base_profile = EXCLUDED.base_profile,
         default_company_need = EXCLUDED.default_company_need,

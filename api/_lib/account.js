@@ -1,3 +1,4 @@
+import { customerNamesFromRow, joinedFromNames } from "./customerNames.js";
 import { sql } from "./db.js";
 
 export async function getAccountSnapshot(codeword) {
@@ -59,9 +60,13 @@ export async function getAccountSnapshot(codeword) {
     cost: Number(r.cost)
   }));
 
+  const nameParts = customerNamesFromRow(customer);
+  const nameJoined = joinedFromNames(nameParts);
+
   return {
     customer: {
-      customerName: customer.customer_name,
+      customerName: nameJoined,
+      customerNames: nameParts,
       petCodeword: customer.codeword,
       petDisplayName: customer.pet_display_name,
       baseProfile: Number(customer.base_profile),
