@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Price Calculator – Die Flauschbabysitterin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #fdf5ee;
+      --card: #fffaf6;
+      --accent: #e59676;
+      --accent-soft: rgba(229, 150, 118, 0.14);
+      --text: #2b1b16;
+      --muted: #8b6d5b;
+      --danger: #d86060;
+      --border: #e1cfc1;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #f8e3d3, #f7f0ea 60%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card);
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 45px rgba(120, 82, 60, 0.25);
+      padding: 22px 22px 20px;
+    }
+
+    h1 {
+      font-size: 1.45rem;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    h1 span.paw {
+      font-size: 1.7rem;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .lang-toggle {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      justify-content: flex-end;
+    }
+
+    .lang-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff8f3;
+      color: var(--muted);
+      font-size: 0.78rem;
+      padding: 4px 9px;
+      cursor: pointer;
+    }
+
+    .lang-btn.active {
+      background: var(--accent);
+      color: #fffaf6;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .field {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85rem;
+    }
+
+    label {
+      color: var(--muted);
+    }
+
+    input[type="date"],
+    input[type="time"],
+    input[type="text"] {
+      padding: 7px 9px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: #fff8f3;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    input::placeholder {
+      color: #b09787;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0 10px;
+      font-size:

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Preisrechner – Die Flauschbabysitterin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      /* soft, warm palette to match your site vibe */
+      --bg: #fdf5ee;
+      --card: #fffaf6;
+      --accent: #e59676;
+      --accent-soft: rgba(229, 150, 118, 0.14);
+      --text: #2b1b16;
+      --muted: #8b6d5b;
+      --danger: #d86060;
+      --border: #e1cfc1;
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #f8e3d3, #f7f0ea 60%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card);
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 45px rgba(120, 82, 60, 0.25);
+      padding: 22px 22px 20px;
+    }
+
+    h1 {
+      font-size: 1.45rem;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    h1 span.paw {
+      font-size: 1.7rem;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .field {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85rem;
+    }
+
+    label {
+      color: var(--muted);
+    }
+
+    input[type="date"],
+    input[type="time"],
+    input[type="text"] {
+      padding: 7px 9px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: #fff8f3;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    input::placeholder {
+      color: #b09787;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0 10px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .checkbox-row input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .discount-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+
+    .discount-row input {
+      flex: 1;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #e59676, #f1b37f);
+      color: #361e16;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      margin-top: 4px;
+      margin-bottom: 10px;
+      box-shadow: 0 10px 25px rgba(104, 68, 49, 0.35);
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
+    }
+
+    button:hover {
+      filter: brightness(1.04);
+      box-shadow: 0 12px 30px rgba(104, 68, 49, 0.45);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 7px 18px rgba(104, 68, 49, 0.4);
+    }
+
+    .result {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(229, 150, 118, 0.5);
+      font-size: 0.9rem;
+      white-space: pre-line;
+      margin-top: 4px;
+    }
+
+    .total-line {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+
+    .price-note {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 14px;
+      }
+      .card {
+        border-radius: 18px;
+        padding: 18px 16px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1><span class="paw">🐾</span> Preisrechner</h1>
+    <div class="subtitle">
+      Trage Abgabe- und Abholzeiten ein, um den ungefähren Preis für den Aufenthalt zu sehen.
+    </div>
+
+    <div id="error" class="error" style="display:none;"></div>
+
+    <div class="row">
+      <div class="field">
+        <label for="dropDate">Abgabe&nbsp;– Datum</label>
+        <input type="date" id="dropDate" />
+      </div>
+      <div class="field">
+        <label for="dropTime">Abgabe&nbsp;– Uhrzeit</label>
+        <input type="time" id="dropTime" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="pickDate">Abholung&nbsp;– Datum</label>
+        <input type="date" id="pickDate" />
+      </div>
+      <div class="field">
+        <label for="pickTime">Abholung&nbsp;– Uhrzeit</label>
+        <input type="time" id="pickTime" />
+      </div>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="constantCompany" />
+      <label for="constantCompany">Hund braucht durchgehend Gesellschaft</label>
+    </div>
+
+    <div class="discount-row">
+      <input type="text" id="discountCode" placeholder="Rabattcode (z.B. KASIA5)" />
+      <span class="hint">optional</span>
+    </div>
+
+    <button onclick="calculate()">Preis berechnen</button>
+
+    <div id="result" class="result" style="display:none;"></div>
+    <div class="price-note">
+      Grundpreise: Full day + overnight 35 €, Extra day-care 25 €, Day-care only 30 €, Overnight only 25 €, 
+      Constant company 5 €/Block. Rabattcodes wie <strong>KASIA5</strong> ziehen 5 € von den Basispreisen pro Block ab.
+    </div>
+  </div>
+
+  <script>
+    function calculate() {
+      const errorEl = document.getElementById('error');
+      const resultEl = document.getElementById('result');
+      errorEl.style.display = 'none';
+      resultEl.style.display = 'none';
+      errorEl.textContent = '';
+      resultEl.textContent = '';
+
+      const dropDate = document.getElementById('dropDate').value;
+      const dropTime = document.getElementById('dropTime').value;
+      const pickDate = document.getElementById('pickDate').value;
+      const pickTime = document.getElementById('pickTime').value;
+      const constantCompany = document.getElementById('constantCompany').checked;
+      const discountCode = document.getElementById('discountCode').value.trim().toUpperCase();
+
+      if (!dropDate || !dropTime || !pickDate || !pickTime) {
+        errorEl.textContent = 'Bitte alle Datums- und Uhrzeitfelder ausfüllen.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const start = new Date(`${dropDate}T${dropTime}:00`);
+      const end = new Date(`${pickDate}T${pickTime}:00`);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        errorEl.textContent = 'Die Eingabe von Datum/Uhrzeit konnte nicht gelesen werden.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (end <= start) {
+        errorEl.textContent = 'Die Abholung muss nach der Abgabe liegen.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const msDiff = end - start;
+      const hours = msDiff / (1000 * 60 * 60);
+      const fullBlocks = Math.floor(hours / 24);
+      const remainingHours = hours - fullBlocks * 24;
+
+      // Standardpreise
+      const baseRates = {
+        fullDay: 35,
+        extraDaycare: 25,
+        daycareOnly: 30,
+        overnight: 25,
+        constantCompany: 5
+      };
+
+      // Rabattierte Preise (–5 € auf jede Basisleistung)
+      const discountedRates = {
+        fullDay: 30,
+        extraDaycare: 20,
+        daycareOnly: 25,
+        overnight: 20,
+        constantCompany: 5 // constant company does NOT get discounted
+      };
+
+      const discountCodes = ['KASIA5', 'GRANDFATHERED'];
+      const useDiscount = discountCodes.includes(discountCode);
+      const rates = useDiscount ? discountedRates : baseRates;
+
+      let breakdown = [];
+      let price = 0;
+
+      // Volle 24h-Blöcke → Full day + overnight
+      if (fullBlocks > 0) {
+        const blockPrice = fullBlocks * rates.fullDay;
+        price += blockPrice;
+        breakdown.push(
+          `${fullBlocks} × Full day + overnight à ${rates.fullDay.toFixed(2)} € = ${blockPrice.toFixed(2)} €`
+        );
+      }
+
+      // Reststunden
+      if (remainingHours > 0.01) {
+        if (remainingHours <= 12) {
+          price += rates.daycareOnly;
+          breakdown.push(
+            `1 × Day-care only (≈ ${remainingHours.toFixed(1)} Std.) à ${rates.daycareOnly.toFixed(2)} € = ${rates.daycareOnly.toFixed(2)} €`
+          );
+        } else {
+          price += rates.fullDay;
+          breakdown.push(
+            `1 × Full day + overnight (≈ ${remainingHours.toFixed(1)} Std.) à ${rates.fullDay.toFixed(2)} € = ${rates.fullDay.toFixed(2)} €`
+          );
+        }
+      }
+
+      // Constant company Zuschlag: pro Block (jede 24h + evtl. Restblock)
+      if (constantCompany) {
+        const blocksForConst = fullBlocks + (remainingHours > 0.01 ? 1 : 0);
+        const constPrice = blocksForConst * rates.constantCompany;
+        price += constPrice;
+        breakdown.push(
+          `${blocksForConst} × Constant company Zuschlag à ${rates.constantCompany.toFixed(2)} € = ${constPrice.toFixed(2)} €`
+        );
+      }
+
+      // Ergebnistext
+      let text = '';
+      text += `Gesamtdauer: ${hours.toFixed(1)} Stunden\n`;
+      text += `24h-Blöcke: ${fullBlocks}, Rest: ${remainingHours.toFixed(1)} Stunden\n\n`;
+      text += breakdown.join('\n');
+
+      if (useDiscount) {
+        text += `\n\nRabattcode angewendet: ${discountCode} (–5 € auf die Basispreise pro Block)`;
+      }
+
+      text += `\n\nGesamt: ${price.toFixed(2)} €`;
+      resultEl.textContent = text;
+      resultEl.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

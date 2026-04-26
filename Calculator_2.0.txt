@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Price Calculator – Die Flauschbabysitterin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --card: #fffaf6;
+      --accent: #e59676;
+      --accent-soft: rgba(229, 150, 118, 0.14);
+      --text: #2b1b16;
+      --muted: #8b6d5b;
+      --danger: #d86060;
+      --border: #e1cfc1;
+    }
+
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: radial-gradient(circle at top, #f8e3d3, #f7f0ea 60%);
+      color: var(--text); display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%; max-width: 560px; background: var(--card);
+      border-radius: 22px; border: 1px solid var(--border);
+      box-shadow: 0 18px 45px rgba(120, 82, 60, 0.25);
+      padding: 22px 22px 20px;
+    }
+
+    .lang-toggle { display: flex; gap: 6px; margin-bottom: 10px; justify-content: flex-end; }
+    .lang-btn {
+      border-radius: 999px; border: 1px solid var(--border);
+      background: #fff8f3; color: var(--muted);
+      font-size: 0.78rem; padding: 4px 9px; cursor: pointer;
+    }
+    .lang-btn.active { background: var(--accent); color: #fffaf6; border-color: var(--accent); font-weight: 600; }
+
+    h1 { font-size: 1.45rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; letter-spacing: 0.02em; }
+    h1 span.paw { font-size: 1.7rem; }
+    .subtitle { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; }
+
+    .row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .field { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
+    label { color: var(--muted); }
+    input[type="date"], input[type="time"], input[type="text"] {
+      padding: 7px 9px; border-radius: 9px; border: 1px solid var(--border);
+      background: #fff8f3; color: var(--text); font-size: 0.9rem;
+    }
+    input::placeholder { color: #b09787; }
+
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; font-size: 0.9rem; color: var(--muted); }
+    .checkbox-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+    .discount-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.85rem; }
+    .discount-row input { flex: 1; }
+    .hint { font-size: 0.75rem; color: var(--muted); }
+
+    button {
+      width: 100%; padding: 10px 12px; border-radius: 999px; border: none;
+      background: linear-gradient(135deg, #e59676, #f1b37f);
+      color: #361e16; font-weight: 600; font-size: 0.95rem; cursor: pointer;
+      margin-top: 4px; margin-bottom: 10px; box-shadow: 0 10px 25px rgba(104, 68, 49, 0.35);
+    }
+
+    .error { color: var(--danger); font-size: 0.85rem; margin-bottom: 6px; }
+    .notice {
+      padding: 10px 12px; border-radius: 12px;
+      background: rgba(218, 178, 160, 0.18);
+      border: 1px solid rgba(218, 178, 160, 0.55);
+      color: #6c4b3d;
+      font-size: 0.85rem;
+      white-space: pre-line;
+      margin: 10px 0;
+      display: none;
+    }
+
+    .result {
+      padding: 10px 12px; border-radius: 12px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(229, 150, 118, 0.5);
+      font-size: 0.9rem; white-space: pre-line; margin-top: 4px;
+      display: none;
+    }
+
+    .price-note { font-size: 0.76rem; color: var(--muted); margin-top: 10px; line-height: 1.35; }
+    code.k { background: rgba(0,0,0,0.05); padding: 0 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="btn-en" onclick="setLanguage('en')">EN</button>
+      <button class="lang-btn" id="btn-de" onclick="setLanguage('de')">DE</button>
+    </div>
+
+    <h1><span class="paw">🐾</span> <span id="titleText">Price calculator</span></h1>
+    <div class="subtitle" id="subtitleText">
+      Uses the official time windows (daycare / overnight / extra daycare) and adds late pickup if applicable.
+    </div>
+
+    <div id="error" class="error" style="display:none;"></div>
+    <div id="notice" class="notice"></div>
+
+    <div class="row">
+      <div class="field">
+        <label id="labelDropDate" for="dropDate">Drop-off – date</label>
+        <input type="date" id="dropDate" />
+      </div>
+      <div class="field">
+        <label id="labelDropTime" for="dropTime">Drop-off – time</label>
+        <input type="time" id="dropTime" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label id="labelPickDate" for="pickDate">Pick-up – date</label>
+        <input type="date" id="pickDate" />
+      </div>
+      <div class="field">
+        <label id="labelPickTime" for="pickTime">Pick-up – time</label>
+        <input type="time" id="pickTime" />
+      </div>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="constantCompany" />
+      <label id="labelConstantCompany" for="constantCompany">Dog needs constant company</label>
+    </div>
+
+    <div class="discount-row">
+      <input type="text" id="discountCode" placeholder="Discount code (e.g. KASIA5)" />
+      <span class="hint" id="discountHint">optional</span>
+    </div>
+
+    <button id="calcButton" onclick="calculate()">Calculate price</button>
+
+    <div id="result" class="result"></div>
+
+    <div class="price-note" id="priceNote">
+      Rules:
+      Full day + overnight €35 (drop-off 08:00–12:00, covers 24h),
+      Daycare only €30 (08:00–22:00, up to 12h),
+      Overnight only €25 (19:00–10:00),
+      Extra daycare €25 (until 19:00 after an overnight),
+      Constant company €5 per started 24h,
+      Late pickup €3 per started hour after 22:00.
+      Discount codes apply –€5 to base services.
+    </div>
+  </div>
+
+  <script>
+    let currentLang = 'en';
+
+    const i18n = {
+      en: {
+        title: 'Price calculator',
+        subtitle: 'Uses the official time windows (daycare / overnight / extra daycare) and adds late pickup if applicable.',
+        labelDropDate: 'Drop-off – date',
+        labelDropTime: 'Drop-off – time',
+        labelPickDate: 'Pick-up – date',
+        labelPickTime: 'Pick-up – time',
+        labelConstantCompany: 'Dog needs constant company',
+        discountPlaceholder: 'Discount code (e.g. KASIA5)',
+        discountHint: 'optional',
+        buttonText: 'Calculate price',
+        priceNote:
+          'Rules: Full day + overnight €35 (drop-off 08:00–12:00, covers 24h), Daycare only €30 (08:00–22:00, up to 12h), Overnight only €25 (19:00–10:00), Extra daycare €25 (until 19:00 after an overnight), Constant company €5 per started 24h, Late pickup €3 per started hour after 22:00. Discount codes apply –€5 to base services.',
+        errMissing: 'Please fill in all date and time fields.',
+        errBad: 'Could not read the date/time input.',
+        errOrder: 'Pick-up must be after drop-off.',
+        noticeOutOfWindow:
+          'Note: This stay includes times outside the standard time windows.\nThe calculator shows the best estimate, but the final price may require confirmation.',
+        lineDuration: (h) => `Total duration: ${h.toFixed(2)} hours`,
+        lineBlocks: (d) => `Started 24h blocks (for constant company): ${d}`,
+        lineItem: (name, price) => `${name}: €${price.toFixed(2)}`,
+        lineLate: (hrs, total) => `Late pickup: ${hrs} started hour(s) × €3 = €${total.toFixed(2)}`,
+        lineDiscount: (code) => `Discount code applied: ${code} (–€5 on base services)`,
+        total: (p) => `Total: €${p.toFixed(2)}`
+      },
+      de: {
+        title: 'Preisrechner',
+        subtitle: 'Nutze die offiziellen Zeitfenster (Daycare / Overnight / Extra Daycare) und berechnet ggf. späte Abholung.',
+        labelDropDate: 'Abgabe – Datum',
+        labelDropTime: 'Abgabe – Uhrzeit',
+        labelPickDate: 'Abholung – Datum',
+        labelPickTime: 'Abholung – Uhrzeit',
+        labelConstantCompany: 'Hund braucht durchgehend Gesellschaft',
+        discountPlaceholder: 'Rabattcode (z.B. KASIA5)',
+        discountHint: 'optional',
+        buttonText: 'Preis berechnen',
+        priceNote:
+          'Regeln: Full day + overnight 35 € (Abgabe 08:00–12:00, deckt 24h), Daycare only 30 € (08:00–22:00, bis 12h), Overnight only 25 € (19:00–10:00), Extra day-care 25 € (bis 19:00 nach Overnight), Constant company 5 € pro angefangene 24h, Späte Abholung 3 € pro angefangene Stunde nach 22:00. Rabattcodes ziehen 5 € von Basisleistungen ab.',
+        errMissing: 'Bitte alle Datums- und Uhrzeitfelder ausfüllen.',
+        errBad: 'Die Eingabe von Datum/Uhrzeit konnte nicht gelesen werden.',
+        errOrder: 'Die Abholung muss nach der Abgabe liegen.',
+        noticeOutOfWindow:
+          'Hinweis: Dieser Aufenthalt liegt teilweise außerhalb der Standard-Zeitfenster.\nDer Rechner zeigt eine bestmögliche Schätzung, finale Bestätigung ggf. nötig.',
+        lineDuration: (h) => `Gesamtdauer: ${h.toFixed(2)} Stunden`,
+        lineBlocks: (d) => `Angefangene 24h-Blöcke (für Constant company): ${d}`,
+        lineItem: (name, price) => `${name}: ${price.toFixed(2)} €`,
+        lineLate: (hrs, total) => `Späte Abholung: ${hrs} angefangene Stunde(n) × 3 € = ${total.toFixed(2)} €`,
+        lineDiscount: (code) => `Rabattcode angewendet: ${code} (–5 € auf Basisleistungen)`,
+        total: (p) => `Gesamt: ${p.toFixed(2)} €`
+      }
+    };
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const t = i18n[lang];
+
+      document.getElementById('titleText').innerText = t.title;
+      document.getElementById('subtitleText').innerText = t.subtitle;
+      document.getElementById('labelDropDate').innerText = t.labelDropDate;
+      document.getElementById('labelDropTime').innerText = t.labelDropTime;
+      document.getElementById('labelPickDate').innerText = t.labelPickDate;
+      document.getElementById('labelPickTime').innerText = t.labelPickTime;
+      document.getElementById('labelConstantCompany').innerText = t.labelConstantCompany;
+      document.getElementById('discountCode').placeholder = t.discountPlaceholder;
+      document.getElementById('discountHint').innerText = t.discountHint;
+      document.getElementById('calcButton').innerText = t.buttonText;
+      document.getElementById('priceNote').innerText = t.priceNote;
+
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+      document.getElementById('btn-de').classList.toggle('active', lang === 'de');
+    }
+
+    // ---- Time helpers ----
+    function hmToMinutes(hm) {
+      const [h, m] = hm.split(':').map(Number);
+      return h * 60 + m;
+    }
+    function minutesOfDay(d) {
+      return d.getHours() * 60 + d.getMinutes();
+    }
+    function sameDate(a, b) {
+      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    }
+    function atTimeOnDate(dateObj, hhmm) {
+      const [h, m] = hhmm.split(':').map(Number);
+      const d = new Date(dateObj);
+      d.setHours(h, m, 0, 0);
+      return d;
+    }
+    function addDays(dateObj, days) {
+      const d = new Date(dateObj);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+    function ceilDiv(a, b) {
+      return Math.ceil(a / b);
+    }
+
+    // ---- Pricing engine (full rules) ----
+    function priceStay(start, end, hasConstantCompany, discountCodeRaw) {
+      const code = (discountCodeRaw || '').trim().toUpperCase();
+      const discountCodes = ['KASIA5', 'GRANDFATHERED'];
+
+      const useDiscount = discountCodes.includes(code);
+
+      // Base services
+      const base = {
+        fullDayOvernight: 35,
+        extraDaycare: 25,
+        daycareOnly: 30,
+        overnightOnly: 25
+      };
+      const discounted = {
+        fullDayOvernight: 30,
+        extraDaycare: 20,
+        daycareOnly: 25,
+        overnightOnly: 20
+      };
+
+      const rates = useDiscount ? discounted : base;
+
+      // Windows (minutes)
+      const WIN = {
+        fullDayDropFrom: hmToMinutes('08:00'),
+        fullDayDropTo: hmToMinutes('12:00'),
+
+        daycareFrom: hmToMinutes('08:00'),
+        daycareTo: hmToMinutes('22:00'),
+        daycareMaxMinutes: 12 * 60,
+
+        overnightDropFrom: hmToMinutes('19:00'),
+        overnightDropTo: hmToMinutes('22:00'),
+        overnightPickupTo: hmToMinutes('10:00'),
+
+        extraDaycarePickupTo: hmToMinutes('19:00'),
+
+        latePickupFrom: hmToMinutes('22:00'),
+        latePickupRatePerStartedHour: 3,
+
+        constantCompanyPerStarted24h: 5
+      };
+
+      // Late pickup fee (applied based on final pickup time after 22:00)
+      function latePickupFee(finalEnd) {
+        const cutoff = atTimeOnDate(finalEnd, '22:00');
+        if (finalEnd <= cutoff) return { fee: 0, startedHours: 0 };
+        const ms = finalEnd - cutoff;
+        const startedHours = Math.ceil(ms / (1000 * 60 * 60));
+        return { fee: startedHours * WIN.latePickupRatePerStartedHour, startedHours };
+      }
+
+      // Constant company fee: €5 per started 24h block
+      function constantCompanyFee(totalMinutes) {
+        const startedBlocks = ceilDiv(totalMinutes, 24 * 60);
+        return { fee: startedBlocks * WIN.constantCompanyPerStarted24h, startedBlocks };
+      }
+
+      // Coverage check: are start/end within any allowed “shape”?
+      // We still compute a best estimate if not, but show a notice.
+      function isClearlyWithinWindows(start, end) {
+        const sMin = minutesOfDay(start);
+        const eMin = minutesOfDay(end);
+
+        // Daycare-only shape (same day, end <= 22, duration <= 12h, start >= 8)
+        const totalMin = (end - start) / (1000 * 60);
+        if (sameDate(start, end) &&
+            sMin >= WIN.daycareFrom &&
+            eMin <= WIN.daycareTo &&
+            totalMin <= WIN.daycareMaxMinutes) return true;
+
+        // Overnight-only shape (start 19-22, end next day <= 10)
+        if (!sameDate(start, end)) {
+          const nextDay = addDays(start, 1);
+          if (sameDate(end, nextDay) &&
+              sMin >= WIN.overnightDropFrom &&
+              sMin <= WIN.overnightDropTo &&
+              eMin <= WIN.overnightPickupTo) return true;
+        }
+
+        // Full-day blocks require drop-off 08-12 (we can still estimate even if not)
+        if (sMin >= WIN.fullDayDropFrom && sMin <= WIN.fullDayDropTo) return true;
+
+        return false;
+      }
+
+      // Dynamic programming:
+      // State = current time + a flag whether we "just had an overnight" so extra daycare can apply.
+      // We explore legal next segments and choose the cheapest way to reach >= end.
+      const memo = new Map();
+
+      function key(t, hadOvernight) {
+        return `${t.getTime()}|${hadOvernight ? 1 : 0}`;
+      }
+
+      function solve(t, hadOvernight) {
+        const k = key(t, hadOvernight);
+        if (memo.has(k)) return memo.get(k);
+
+        if (t >= end) {
+          const res = { cost: 0, items: [] };
+          memo.set(k, res);
+          return res;
+        }
+
+        const candidates = [];
+
+        const tMin = minutesOfDay(t);
+
+        // 1) Daycare-only segment (as a remainder block): can cover up to 12h but not past 22:00 same day
+        // We use it as a segment if it gets us closer (fixed fee).
+        if (tMin >= WIN.daycareFrom && tMin <= WIN.daycareTo) {
+          const maxEndByDuration = new Date(t.getTime() + WIN.daycareMaxMinutes * 60 * 1000);
+          const endOfDaycareWindow = atTimeOnDate(t, '22:00');
+          const segEnd = new Date(Math.min(maxEndByDuration.getTime(), endOfDaycareWindow.getTime()));
+
+          // Only add if it actually advances time
+          if (segEnd > t) {
+            const next = solve(segEnd, false);
+            candidates.push({
+              cost: rates.daycareOnly + next.cost,
+              items: [{ nameKey: 'daycareOnly', label: 'Daycare only', price: rates.daycareOnly, from: t, to: segEnd }].concat(next.items)
+            });
+          }
+        }
+
+        // 2) Overnight-only segment (19:00–10:00)
+        if (tMin >= WIN.overnightDropFrom && tMin <= WIN.overnightDropTo) {
+          const overnightEnd = atTimeOnDate(addDays(t, 1), '10:00');
+          if (overnightEnd > t) {
+            const next = solve(overnightEnd, true);
+            candidates.push({
+              cost: rates.overnightOnly + next.cost,
+              items: [{ nameKey: 'overnightOnly', label: 'Overnight only', price: rates.overnightOnly, from: t, to: overnightEnd }].concat(next.items)
+            });
+          }
+        }
+
+        // 3) Full day + overnight (24h) — only "official" if drop-off is 08:00–12:00
+        if (tMin >= WIN.fullDayDropFrom && tMin <= WIN.fullDayDropTo) {
+          const fullEnd = new Date(t.getTime() + 24 * 60 * 60 * 1000);
+          const next = solve(fullEnd, true); // counts as having had an overnight
+          candidates.push({
+            cost: rates.fullDayOvernight + next.cost,
+            items: [{ nameKey: 'fullDayOvernight', label: 'Full day + overnight', price: rates.fullDayOvernight, from: t, to: fullEnd }].concat(next.items)
+          });
+        }
+
+        // 4) Extra daycare after an overnight — until 19:00 same day
+        if (hadOvernight) {
+          const extraEnd = atTimeOnDate(t, '19:00');
+          if (extraEnd > t) {
+            const next = solve(extraEnd, false);
+            candidates.push({
+              cost: rates.extraDaycare + next.cost,
+              items: [{ nameKey: 'extraDaycare', label: 'Extra daycare', price: rates.extraDaycare, from: t, to: extraEnd }].concat(next.items)
+            });
+          }
+        }
+
+        // 5) Fallback: if we have NO candidates (times outside windows), advance by 24h blocks estimator
+        // This prevents “no solution” for real-life dropoffs (e.g. 18:30).
+        if (candidates.length === 0) {
+          const fullEnd = new Date(t.getTime() + 24 * 60 * 60 * 1000);
+          const next = solve(fullEnd, true);
+          candidates.push({
+            cost: rates.fullDayOvernight + next.cost,
+            items: [{ nameKey: 'fullDayOvernight', label: 'Full day + overnight', price: rates.fullDayOvernight, from: t, to: fullEnd, isFallback: true }].concat(next.items)
+          });
+        }
+
+        // Choose cheapest candidate
+        candidates.sort((a, b) => a.cost - b.cost);
+        const best = candidates[0];
+        memo.set(k, best);
+        return best;
+      }
+
+      const basePlan = solve(start, false);
+
+      // Now trim plan items so it doesn’t list segments entirely after end
+      const items = [];
+      for (const it of basePlan.items) {
+        if (it.from >= end) break;
+        // Keep item if it overlaps the actual stay window
+        if (it.to > start) items.push(it);
+      }
+
+      // Total minutes for constant company
+      const totalMinutes = (end - start) / (1000 * 60);
+
+      // Add constant company + late pickup
+      let total = basePlan.cost;
+      const breakdown = [];
+
+      // Add base services breakdown
+      for (const it of items) {
+        let name = it.label;
+        if (it.isFallback) name += ' (estimate)';
+        breakdown.push({ type: 'service', name, price: it.price });
+      }
+
+      // Constant company
+      let cc = { fee: 0, startedBlocks: 0 };
+      if (hasConstantCompany) {
+        cc = constantCompanyFee(totalMinutes);
+        total += cc.fee;
+      }
+
+      // Late pickup
+      const late = latePickupFee(end);
+      total += late.fee;
+
+      return {
+        total,
+        breakdown,
+        useDiscount,
+        discountCode: useDiscount ? code : '',
+        lateStartedHours: late.startedHours,
+        lateFee: late.fee,
+        constantCompanyStartedBlocks: cc.startedBlocks,
+        constantCompanyFee: cc.fee,
+        clearlyWithinWindows: isClearlyWithinWindows(start, end)
+      };
+    }
+
+    function calculate() {
+      const t = i18n[currentLang];
+      const errorEl = document.getElementById('error');
+      const noticeEl = document.getElementById('notice');
+      const resultEl = document.getElementById('result');
+
+      errorEl.style.display = 'none';
+      noticeEl.style.display = 'none';
+      resultEl.style.display = 'none';
+      errorEl.textContent = '';
+      noticeEl.textContent = '';
+      resultEl.textContent = '';
+
+      const dropDate = document.getElementById('dropDate').value;
+      const dropTime = document.getElementById('dropTime').value;
+      const pickDate = document.getElementById('pickDate').value;
+      const pickTime = document.getElementById('pickTime').value;
+      const constantCompany = document.getElementById('constantCompany').checked;
+      const discountCode = document.getElementById('discountCode').value;
+
+      if (!dropDate || !dropTime || !pickDate || !pickTime) {
+        errorEl.textContent = t.errMissing;
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const start = new Date(`${dropDate}T${dropTime}:00`);
+      const end = new Date(`${pickDate}T${pickTime}:00`);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        errorEl.textContent = t.errBad;
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (end <= start) {
+        errorEl.textContent = t.errOrder;
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const res = priceStay(start, end, constantCompany, discountCode);
+
+      if (!res.clearlyWithinWindows) {
+        noticeEl.textContent = t.noticeOutOfWindow;
+        noticeEl.style.display = 'block';
+      }
+
+      const hours = (end - start) / (1000 * 60 * 60);
+      const started24h = Math.ceil(((end - start) / (1000 * 60)) / (24 * 60));
+
+      const lines = [];
+      lines.push(t.lineDuration(hours));
+      if (constantCompany) lines.push(t.lineBlocks(started24h));
+      lines.push('');
+
+      // Summarize service lines (group by name)
+      const grouped = new Map();
+      for (const b of res.breakdown) {
+        const key = b.name;
+        grouped.set(key, (grouped.get(key) || 0) + b.price);
+      }
+      for (const [name, sum] of grouped.entries()) {
+        lines.push(t.lineItem(name, sum));
+      }
+
+      if (constantCompany && res.constantCompanyFee > 0) {
+        lines.push(t.lineItem(currentLang === 'en' ? 'Constant company' : 'Constant company', res.constantCompanyFee));
+      }
+
+      if (res.lateFee > 0) {
+        lines.push(t.lineLate(res.lateStartedHours, res.lateFee));
+      }
+
+      if (res.useDiscount) {
+        lines.push('');
+        lines.push(t.lineDiscount(res.discountCode));
+      }
+
+      lines.push('');
+      lines.push(t.total(res.total));
+
+      resultEl.textContent = lines.join('\n');
+      resultEl.style.display = 'block';
+    }
+
+    setLanguage('en');
+  </script>
+</body>
+</html>

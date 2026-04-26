@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Die Flauschbabysitterin</title>
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <main>
+    <section id="services" class="card section-welcome">
+      <div class="split-two">
+        <div class="welcome-copy">
+          <img class="logo-image" src="./LOGO.png" alt="Die Flauschbabysitterin logo" />
+          <h2 class="title-hero">
+            <span>Die</span>
+            <span>Flauschbabysitterin</span>
+          </h2>
+          <p class="tagline">"wo Streicheleinheiten<br />zu Streichelmehrheiten werden"</p>
+          <p class="lead">Erfahrene Pet-sitterin<br />und Tierportrait Zeichnerin</p>
+          <p class="lead">Spricht fließend Englisch, Deutsch<br />und Französisch</p>
+        </div>
+        <div class="photo-grid photo-grid-hero" aria-label="Hero photo collage">
+          <figure class="photo-tile"><img src="./hero-collage-01.png" alt="Hero collage pet photo 1" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-02.png" alt="Hero collage pet photo 2" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-03.png" alt="Hero collage pet photo 3" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-04.png" alt="Hero collage pet photo 4" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-05.png" alt="Hero collage pet photo 5" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-06.png" alt="Hero collage pet photo 6" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-07.png" alt="Hero collage pet photo 7" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-08.png" alt="Hero collage pet photo 8" /></figure>
+          <figure class="photo-tile"><img src="./hero-collage-09.png" alt="Hero collage pet photo 9" /></figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section-about">
+      <div class="split-two">
+        <img class="about-photo" src="./about-photo.png" alt="Amy with family and pets" />
+        <div class="about-copy">
+          <h2 class="title-standard title-blue">About Me</h2>
+          <div class="flags">
+            <span class="flag">EN</span>
+            <span class="flag">DE</span>
+            <span class="flag">FR</span>
+          </div>
+          <p>
+            My name is Amy, and I am an experienced pet-sitter based in Friedrichshain. I grew up with a
+            large variety of animal friends (mostly fluffy, but also scaly, woolly, hooved - all sorts) and
+            have been making friends professionally since 2021.
+          </p>
+          <p>
+            I love the challenge of adapting to each animal's unique personality and needs, and establishing
+            a bond based on trust and reliability, with both furbaby and pet parent.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="calculator" class="card section-calculator">
+      <h2 class="title-standard title-blue">Stay Calculator</h2>
+      <p class="muted-line">Transparent pricing with your assigned pet profile and full breakdown.</p>
+      <div class="grid">
+        <label>Pet name <input id="petName" type="text" placeholder="e.g. Luna" /></label>
+        <label>Pet parent name <input id="petParentName" type="text" placeholder="e.g. Alex" /></label>
+        <label>Discount code (optional) <input id="discountCode" type="text" placeholder="e.g. FRIEND35" /></label>
+        <label>Drop-off <input id="dropoff" type="datetime-local" /></label>
+        <label>Pick-up <input id="pickup" type="datetime-local" /></label>
+      </div>
+      <fieldset id="companyNeedQuestion" class="row company-question">
+        <legend>When left alone for an hour or two to run errands, my pet...</legend>
+        <div class="paw-options">
+          <label class="paw-option">
+            <input id="companyChoiceA" type="radio" name="companyNeedChoice" value="a" checked />
+            <span>...enjoys their alone time.</span>
+          </label>
+          <label class="paw-option">
+            <input id="companyChoiceB" type="radio" name="companyNeedChoice" value="b" />
+            <span>...is generally okay, especially with a pee break before and after.</span>
+          </label>
+          <label class="paw-option">
+            <input id="companyChoiceC" type="radio" name="companyNeedChoice" value="c" />
+            <span>...informs all neighbours and the whole street via the song of their people.</span>
+          </label>
+        </div>
+      </fieldset>
+      <p id="companyNeedKnownNote" class="muted-line hidden">
+        This pet has an account, so their constant-company need is already saved in their profile.
+      </p>
+      <div class="row action-row">
+        <button id="calcBtn" type="button">Calculate</button>
+        <button id="viewPetAccountBtn" class="hidden" type="button">Check out this pet's account</button>
+      </div>
+      <p id="calcModeMessage" class="muted-line"></p>
+      <pre id="quoteOutput" class="output hidden"></pre>
+      <button id="bookRequestBtn" class="hidden booking-cta-btn" type="button">Request booking</button>
+      <section id="bookingRequestFormWrap" class="hidden">
+        <button id="backToEstimateBtn" class="back-arrow-btn" type="button" aria-label="Back to estimate">←</button>
+        <h3 class="title-standard title-blue">Booking Request</h3>
+        <form id="bookingRequestForm" action="https://formsubmit.co/amybruttoncreations@gmail.com" method="POST" class="grid">
+          <input type="hidden" name="_subject" value="New pet sitting booking request" />
+          <input type="hidden" name="_captcha" value="false" />
+          <input type="hidden" name="_template" value="table" />
+          <label>Your name <input id="bookingName" name="name" type="text" required /></label>
+          <label>Your email <input id="bookingEmail" name="email" type="email" required /></label>
+          <label>Pet name <input id="bookingPet" name="petName" type="text" required /></label>
+          <label>Drop-off <input id="bookingDropoff" name="dropoff" type="text" required /></label>
+          <label>Pick-up <input id="bookingPickup" name="pickup" type="text" required /></label>
+          <label>Estimated total <input id="bookingEstimate" name="estimateTotal" type="text" required /></label>
+          <label class="full-width">Message
+            <textarea id="bookingMessage" name="message" rows="4" placeholder="Any notes for this stay?"></textarea>
+          </label>
+          <button type="submit">Send booking request</button>
+        </form>
+      </section>
+      <h2 class="title-standard services-include-title">
+        <span class="title-blue">Services</span>
+        <span class="title-yellow"> Include</span>
+      </h2>
+      <ul class="pretty-list">
+        <li>3 daily walks minimum @ 45 min each</li>
+        <li>1 weekly dog park visit (minimum) if appropriate</li>
+        <li>Feeding according to your pet's schedule and requirements (incl. BARF)</li>
+        <li>Bathing and/or basic grooming according to requirements</li>
+        <li>Regular playtime and cuddles in bulk</li>
+        <li>Regular practice of known commands</li>
+      </ul>
+      <p>
+        Walks are done exclusively on the leash unless otherwise discussed, but I do my best to make
+        them engaging and stimulating.
+      </p>
+    </section>
+
+    <section id="petAccountPage" class="card section-account-page hidden">
+      <button
+        id="closePetAccountBtn"
+        class="pet-account-back-btn"
+        type="button"
+        aria-label="Back to calculator"
+        title="Back to calculator"
+      >
+        ←
+      </button>
+      <div id="petAccountPageContent"></div>
+    </section>
+
+    <section class="card section-portraits">
+      <h2 class="title-standard">
+        <span class="title-blue">My </span>
+        <span class="title-orange">Pet Portraits</span>
+      </h2>
+      <div class="portrait-placeholders" aria-label="Pet portrait gallery">
+        <figure class="portrait-tile">
+          <img src="./pet-portrait-01.png" alt="Stylized pet portrait of a white dog in sunglasses and blue shirt" />
+        </figure>
+        <figure class="portrait-tile">
+          <img src="./pet-portrait-02.png" alt="Stylized pet portrait of a small dog sitting in a pink toy car" />
+        </figure>
+      </div>
+      <p class="portraits-tagline"><strong>Bespoke portraits of your furbaby.</strong></p>
+      <div class="portraits-copy">
+      <p>
+        My main line of work is as an illustrator, so it was only a matter of time before I drew
+        inspiration from my furry guests.
+      </p>
+      <p>
+        I keep things modern and scalable with vector-based art, so if you've been hankering for a
+        portrait of your pet large enough to cover your bed (or all the walls in your home), let me know.
+      </p>
+      </div>
+    </section>
+
+    <section id="adminPanel" class="admin-panel hidden">
+      <button id="adminCloseBtn" class="admin-close" type="button">Close</button>
+      <h2>Admin</h2>
+      <div class="grid">
+        <label>Passcode <input id="adminPasscode" type="password" placeholder="Enter admin passcode" /></label>
+      </div>
+      <button id="adminUnlockBtn">Unlock Admin Controls</button>
+      <div id="adminState" class="muted-line">Admin mode is locked.</div>
+      <div id="admin" class="hidden">
+      <h2>Customer Accounts + Ledger + Rewards</h2>
+      <div class="grid">
+        <label>Customer name <input id="customerName" type="text" /></label>
+        <label>Pet codeword <input id="petCodeword" type="text" /></label>
+        <label>Pet display name <input id="petDisplayName" type="text" placeholder="e.g. Bubbles" /></label>
+        <label>Profile image URL (optional) <input id="petProfileImage" type="text" placeholder="./bubbles-profile.png" /></label>
+        <label>Base profile
+          <select id="baseProfile">
+            <option value="30">30 EUR</option>
+            <option value="35">35 EUR</option>
+            <option value="40" selected>40 EUR</option>
+          </select>
+        </label>
+        <label>Age now (years) <input id="petAgeYears" type="number" min="0" step="1" /></label>
+        <label><input id="defaultCompanyNeed" type="checkbox" /> Default: needs constant company</label>
+      </div>
+      <div class="grid">
+        <label>Owner email <input id="ownerEmail" type="email" /></label>
+        <label>Owner phone (admin only) <input id="ownerPhone" type="text" /></label>
+        <label>Emergency contact phone (admin only) <input id="emergencyPhone" type="text" /></label>
+        <label>Vet address <input id="vetAddress" type="text" /></label>
+      </div>
+      <div class="grid">
+        <label>Likes <textarea id="petLikes" rows="2"></textarea></label>
+        <label>Dislikes <textarea id="petDislikes" rows="2"></textarea></label>
+        <label>Allergies <textarea id="petAllergies" rows="2"></textarea></label>
+        <label>Friends <textarea id="petFriends" rows="2"></textarea></label>
+        <label>Medical needs <textarea id="petMedicalNeeds" rows="2"></textarea></label>
+        <label>Medical history <textarea id="petMedicalHistory" rows="2"></textarea></label>
+      </div>
+      <button id="saveCustomerBtn">Save Customer</button>
+      <hr />
+      <div class="grid">
+        <label>Invoice amount <input id="invoiceAmount" type="number" step="0.01" /></label>
+        <label>Paid amount <input id="paidAmount" type="number" step="0.01" /></label>
+      </div>
+      <button id="addLedgerBtn">Add Ledger Entry</button>
+      <div class="grid">
+        <label>Stay start <input id="stayStart" type="datetime-local" /></label>
+        <label>Stay end <input id="stayEnd" type="datetime-local" /></label>
+        <label>Stay status
+          <select id="stayStatus">
+            <option value="planned">Planned</option>
+            <option value="completed">Completed</option>
+          </select>
+        </label>
+        <label>Stay notes <input id="stayNotes" type="text" placeholder="e.g. Easter stay" /></label>
+      </div>
+      <button id="addStayBtn">Add Stay To Timeline</button>
+      <button id="redeemPortraitBtn">Redeem portrait reward (50 EUR)</button>
+      <button id="redeemFreeDaysBtn">Redeem 2 free days</button>
+      <pre id="accountOutput" class="output"></pre>
+      </div>
+    </section>
+
+    <section id="contact" class="card section-join">
+      <div class="photo-grid photo-grid-join" aria-label="Join the family photo grid placeholder">
+        <div class="photo-tile">1</div><div class="photo-tile">2</div><div class="photo-tile">3</div><div class="photo-tile">4</div><div class="photo-tile">5</div><div class="photo-tile">6</div><div class="photo-tile">7</div>
+        <div class="photo-tile">8</div><div class="photo-tile">9</div><div class="photo-tile">10</div><div class="photo-tile">11</div><div class="photo-tile">12</div><div class="photo-tile">13</div><div class="photo-tile">14</div>
+        <div class="photo-tile">15</div><div class="photo-tile">16</div><div class="photo-tile">17</div><div class="photo-tile">18</div><div class="photo-tile">19</div><div class="photo-tile">20</div><div class="photo-tile">21</div>
+      </div>
+      <div class="join-footer">
+        <h2 class="title-standard title-orange">Join The Family</h2>
+        <div class="contact-details">
+          <p><strong>Email:</strong> amybruttoncreations@gmail.com</p>
+          <p><strong>Phone:</strong> 017683061829</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <button id="adminOpenBtn" class="admin-fab" type="button" aria-label="Open admin">🔑</button>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pet Sitting Price Calculator – Die Flauschbabysitterin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --card:#fffaf6; --accent:#e59676; --accent-soft:rgba(229,150,118,.14);
+      --text:#2b1b16; --muted:#8b6d5b; --danger:#d86060; --border:#e1cfc1;
+    }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{
+      margin:0;min-height:100vh;
+      background:radial-gradient(circle at top,#f8e3d3,#f7f0ea 60%);
+      color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px
+    }
+    .card{
+      width:100%;max-width:680px;background:var(--card);
+      border-radius:22px;border:1px solid var(--border);
+      box-shadow:0 18px 45px rgba(120,82,60,.25);
+      padding:22px 22px 18px
+    }
+    .lang-toggle{display:flex;gap:6px;margin-bottom:10px;justify-content:flex-end}
+    .lang-btn{
+      border-radius:999px;border:1px solid var(--border);
+      background:#fff8f3;color:var(--muted);
+      font-size:.78rem;padding:4px 9px;cursor:pointer
+    }
+    .lang-btn.active{background:var(--accent);color:#fffaf6;border-color:var(--accent);font-weight:600}
+    h1{
+      font-size:1.35rem;margin:0 0 6px;display:flex;align-items:center;gap:8px;letter-spacing:.02em
+    }
+    h1 .paw{font-size:1.6rem}
+    .subtitle{
+      font-size:.92rem;color:var(--muted);
+      margin-bottom:14px;line-height:1.45
+    }
+    .row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+    .field{flex:1;min-width:220px;display:flex;flex-direction:column;gap:4px;font-size:.85rem}
+    label{color:var(--muted)}
+    input[type="date"],input[type="time"],input[type="text"]{
+      padding:7px 9px;border-radius:9px;border:1px solid var(--border);
+      background:#fff8f3;color:var(--text);font-size:.95rem
+    }
+    input::placeholder{color:#b09787}
+    .checkbox-row{
+      display:flex;align-items:center;gap:10px;margin:6px 0 6px;color:var(--muted);flex-wrap:wrap
+    }
+    .checkbox-row input{width:16px;height:16px;accent-color:var(--accent)}
+    button{
+      width:100%;padding:10px 12px;border-radius:999px;border:none;
+      background:linear-gradient(135deg,#e59676,#f1b37f);
+      color:#361e16;font-weight:650;font-size:.98rem;cursor:pointer;
+      margin-top:6px;box-shadow:0 10px 25px rgba(104,68,49,.35)
+    }
+    .error{color:var(--danger);font-size:.92rem;margin:10px 0 0;display:none}
+    .result{
+      padding:12px;border-radius:12px;background:var(--accent-soft);
+      border:1px solid rgba(229,150,118,.5);
+      font-size:.92rem;white-space:pre-line;margin-top:12px;display:none
+    }
+    .copy-row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+    .copy-row button{width:auto;flex:1;min-width:200px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="btn-en" onclick="setLanguage('en')">EN</button>
+      <button class="lang-btn" id="btn-de" onclick="setLanguage('de')">DE</button>
+    </div>
+
+    <h1><span class="paw">🐾</span> <span id="titleText">Price calculator</span></h1>
+    <div class="subtitle" id="subtitleText"></div>
+
+    <div class="row">
+      <div class="field">
+        <label id="labelPetName" for="petName">Pet’s name</label>
+        <input type="text" id="petName" placeholder="e.g. Quantum" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label id="labelDropDate" for="dropDate">Drop-off – date</label>
+        <input type="date" id="dropDate" />
+      </div>
+      <div class="field">
+        <label id="labelDropTime" for="dropTime">Drop-off – time</label>
+        <input type="time" id="dropTime" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label id="labelPickDate" for="pickDate">Pick-up – date</label>
+        <input type="date" id="pickDate" />
+      </div>
+      <div class="field">
+        <label id="labelPickTime" for="pickTime">Pick-up – time</label>
+        <input type="time" id="pickTime" />
+      </div>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="constantCompany" />
+      <label id="labelConstantCompany" for="constantCompany">Constant company needed (+€5 per started 24h)</label>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="tier1" />
+      <label id="labelTier1" for="tier1">Tier 1 surcharge (+€5 per started 24h) (Christmas/New Year)</label>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="tier2" />
+      <label id="labelTier2" for="tier2">Tier 2 surcharge (+€3 per started 24h) (Easter week / Herbstferien)</label>
+    </div>
+
+    <button id="calcButton" onclick="calculate()">Calculate price</button>
+
+    <div id="error" class="error"></div>
+    <div id="result" class="result"></div>
+
+    <div class="copy-row" id="copyRow" style="display:none;">
+      <button onclick="copyResult()" id="copyBtn">Copy message</button>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // CONFIG YOU EDIT ONCE
+    // =========================
+    const PETNAME_BASELINE_MAP = {
+      "QUANTUM": 35,
+      "SNOEPJE": 30,
+      "BORJA": 30,
+      "BUBBLES": 35,
+    };
+    const DEFAULT_BASELINE = 35;
+
+    // NEW: Extension fee (applies only when we already charged at least 1 block)
+    const EXTENSION_MAX_HOURS = 5;
+    const EXTENSION_RATE_PER_STARTED_HOUR = 3;
+
+    // NEW: Late tier
+    const LATE_22_CUTOFF = "22:00";
+    const LATE_22_TO_MIDNIGHT_RATE_PER_STARTED_HOUR = 5;
+    // 00:00+ => overnight block (we charge an overnight block from midnight to 10:00)
+
+    // Overnight window: 19:00 → 10:00
+    const OVERNIGHT_START = "19:00";
+    const OVERNIGHT_END = "10:00";
+    const OVERNIGHT_GRACE_FROM = "18:00";
+    const OVERNIGHT_GRACE_TO = "18:59";
+
+    // Full day + overnight official anchor: drop-off 08:00–12:00 (24h)
+    const FULLDAY_ANCHOR_FROM = "08:00";
+    const FULLDAY_ANCHOR_TO   = "12:00";
+
+    // Daycare-only: up to 12h, ends by 22:00
+    const DAYCARE_MAX_HOURS = 12;
+    const DAYCARE_LATEST_END = "22:00";
+
+    // Extra daycare after overnight/full-day: until 19:00
+    const EXTRA_DAYCARE_END = "19:00";
+
+    // Surcharges
+    const CONSTANT_COMPANY_PER_STARTED_24H = 5;
+    const TIER1_PER_STARTED_24H = 5;
+    const TIER2_PER_STARTED_24H = 3;
+
+    // Early drop-off surcharges (once, based on drop-off time)
+    const EARLY_SURCHARGES = [
+      { from: "00:00", to: "05:59", amount: 10, labelEN: "Early drop-off (before 06:00)", labelDE: "Frühe Abgabe (vor 06:00)" },
+      { from: "06:00", to: "06:59", amount: 5,  labelEN: "Early drop-off (06:00–06:59)", labelDE: "Frühe Abgabe (06:00–06:59)" },
+      { from: "07:00", to: "07:59", amount: 3,  labelEN: "Early drop-off (07:00–07:59)", labelDE: "Frühe Abgabe (07:00–07:59)" },
+    ];
+
+    // =========================
+    // I18N (EN/DE)
+    // =========================
+    let currentLang = "en";
+
+    const i18n = {
+      en: {
+        title: "Price calculator",
+        subtitle:
+          "Hi dear pet parents (or potential pet parents)! I spent a while outlining the fairest possible pricing to cover all eventualities, and this is what I came up with. Then I made this calculator because the pricing range got so comprehensive it was no longer within my mathematical abilities. Fortunately I'm better at caring for pets than at counting. 😊",
+        petName: "Pet’s name",
+        petNamePH: "e.g. Quantum",
+        dropDate: "Drop-off – date",
+        dropTime: "Drop-off – time",
+        pickDate: "Pick-up – date",
+        pickTime: "Pick-up – time",
+        cc: "Constant company needed (+€5 per started 24h)",
+        tier1: "Tier 1 surcharge (+€5 per started 24h) (Christmas/New Year)",
+        tier2: "Tier 2 surcharge (+€3 per started 24h) (Easter week / Herbstferien)",
+        calc: "Calculate price",
+        copy: "Copy message",
+        errMissing: "Please fill in all date and time fields.",
+        errBad: "Could not read the date/time input.",
+        errOrder: "Pick-up must be after drop-off.",
+        intro: "Hey! 😊 Here’s the pricing breakdown for the stay, based on my flat-rate time windows (not billed per hour, but per block):",
+        total: (v) => `Total: €${v.toFixed(2)}`,
+        baselineLine: (b) => `Baseline used (full day + overnight): €${b.toFixed(2)}`,
+        segDaycare: "Day-care only (up to 12h, ends by 22:00)",
+        segOvernight: "Overnight stay only (19:00–10:00)",
+        segOvernightMidnight: "Overnight stay only (after midnight)",
+        segFull: "Full day + overnight (24h block)",
+        segExtra: "Extra day-care (after an overnight, until 19:00)",
+        segExtension: "Extension fee",
+        segLate22: "Late pick-up (22:00–23:59)",
+        extensionLine: (hrs, fee) => `Extension fee: ${hrs} started hour(s) × €${EXTENSION_RATE_PER_STARTED_HOUR} = €${fee.toFixed(2)}`,
+        late22Line: (hrs, fee) => `Late pick-up (22:00–23:59): ${hrs} started hour(s) × €${LATE_22_TO_MIDNIGHT_RATE_PER_STARTED_HOUR} = €${fee.toFixed(2)}`,
+        ccLine: (blocks, fee) => `Constant company: ${blocks} started 24h block(s) × €${CONSTANT_COMPANY_PER_STARTED_24H} = €${fee.toFixed(2)}`,
+        tier1Line: (blocks, fee) => `Tier 1 surcharge: ${blocks} started 24h block(s) × €${TIER1_PER_STARTED_24H} = €${fee.toFixed(2)}`,
+        tier2Line: (blocks, fee) => `Tier 2 surcharge: ${blocks} started 24h block(s) × €${TIER2_PER_STARTED_24H} = €${fee.toFixed(2)}`,
+        graceNote: "(Drop-off before 19:00 is included)",
+        estimateNote: "(Estimate outside standard window)"
+      },
+      de: {
+        title: "Preisrechner",
+        subtitle:
+          "Hallo liebe Tiereltern (oder zukünftige)! Ich habe mir viel Zeit genommen, die fairste Preisstruktur zu entwickeln, die möglichst alle Fälle abdeckt — und das ist dabei herausgekommen. Danach habe ich diesen Rechner gebaut, weil das System irgendwann so umfassend wurde, dass es meine Mathe-Skills überstiegen hat. Zum Glück bin ich besser im Tier-Betreuen als im Rechnen. 😊",
+        petName: "Name des Tiers",
+        petNamePH: "z.B. Quantum",
+        dropDate: "Abgabe – Datum",
+        dropTime: "Abgabe – Uhrzeit",
+        pickDate: "Abholung – Datum",
+        pickTime: "Abholung – Uhrzeit",
+        cc: "Constant company nötig (+5 € pro angefangene 24h)",
+        tier1: "Tier 1 Zuschlag (+5 € pro angefangene 24h) (Weihnachten/Neujahr)",
+        tier2: "Tier 2 Zuschlag (+3 € pro angefangene 24h) (Osterwoche/Herbstferien)",
+        calc: "Preis berechnen",
+        copy: "Nachricht kopieren",
+        errMissing: "Bitte alle Datums- und Uhrzeitfelder ausfüllen.",
+        errBad: "Datum/Uhrzeit konnte nicht gelesen werden.",
+        errOrder: "Abholung muss nach der Abgabe liegen.",
+        intro: "Hey! 😊 Hier ist die Kostenübersicht (Pauschal-Blöcke nach Zeitfenster – nicht pro Stunde abgerechnet):",
+        total: (v) => `Gesamt: ${v.toFixed(2)} €`,
+        baselineLine: (b) => `Verwendete Basis (Full day + overnight): ${b.toFixed(2)} €`,
+        segDaycare: "Day-care only (bis 12h, spätestens 22:00)",
+        segOvernight: "Overnight stay only (19:00–10:00)",
+        segOvernightMidnight: "Overnight stay only (nach Mitternacht)",
+        segFull: "Full day + overnight (24h Block)",
+        segExtra: "Extra day-care (nach Overnight, bis 19:00)",
+        segExtension: "Verlängerungsgebühr",
+        segLate22: "Späte Abholung (22:00–23:59)",
+        extensionLine: (hrs, fee) => `Verlängerungsgebühr: ${hrs} angefangene Stunde(n) × ${EXTENSION_RATE_PER_STARTED_HOUR} € = ${fee.toFixed(2)} €`,
+        late22Line: (hrs, fee) => `Späte Abholung (22:00–23:59): ${hrs} angefangene Stunde(n) × ${LATE_22_TO_MIDNIGHT_RATE_PER_STARTED_HOUR} € = ${fee.toFixed(2)} €`,
+        ccLine: (blocks, fee) => `Constant company: ${blocks} angefangene 24h-Block(s) × ${CONSTANT_COMPANY_PER_STARTED_24H} € = ${fee.toFixed(2)} €`,
+        tier1Line: (blocks, fee) => `Tier 1 Zuschlag: ${blocks} angefangene 24h-Block(s) × ${TIER1_PER_STARTED_24H} € = ${fee.toFixed(2)} €`,
+        tier2Line: (blocks, fee) => `Tier 2 Zuschlag: ${blocks} angefangene 24h-Block(s) × ${TIER2_PER_STARTED_24H} € = ${fee.toFixed(2)} €`,
+        graceNote: "(Abgabe vor 19:00 ist mit abgedeckt)",
+        estimateNote: "(Schätzung außerhalb Standard-Fenster)"
+      }
+    };
+
+    function setLanguage(lang){
+      currentLang = lang;
+      const t = i18n[lang];
+
+      document.getElementById("titleText").innerText = t.title;
+      document.getElementById("subtitleText").innerText = t.subtitle;
+
+      document.getElementById("labelPetName").innerText = t.petName;
+      document.getElementById("petName").placeholder = t.petNamePH;
+
+      document.getElementById("labelDropDate").innerText = t.dropDate;
+      document.getElementById("labelDropTime").innerText = t.dropTime;
+      document.getElementById("labelPickDate").innerText = t.pickDate;
+      document.getElementById("labelPickTime").innerText = t.pickTime;
+
+      document.getElementById("labelConstantCompany").innerText = t.cc;
+      document.getElementById("labelTier1").innerText = t.tier1;
+      document.getElementById("labelTier2").innerText = t.tier2;
+
+      document.getElementById("calcButton").innerText = t.calc;
+      document.getElementById("copyBtn").innerText = t.copy;
+
+      document.getElementById("btn-en").classList.toggle("active", lang==="en");
+      document.getElementById("btn-de").classList.toggle("active", lang==="de");
+    }
+
+    // =========================
+    // TIME HELPERS
+    // =========================
+    function hmToMinutes(hm){
+      const [h,m]=hm.split(":").map(Number);
+      return h*60+m;
+    }
+    function minutesOfDay(d){ return d.getHours()*60 + d.getMinutes(); }
+    function atTimeOnDate(dateObj, hhmm){
+      const [h,m]=hhmm.split(":").map(Number);
+      const d=new Date(dateObj);
+      d.setHours(h,m,0,0);
+      return d;
+    }
+    function addDays(dateObj, days){
+      const d=new Date(dateObj);
+      d.setDate(d.getDate()+days);
+      return d;
+    }
+    function sameDay(a,b){
+      return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+    }
+    function fmtDT(d){
+      const locale = currentLang==="de" ? "de-DE" : "en-GB";
+      const f = new Intl.DateTimeFormat(locale,{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+      return f.format(d).replace(",", "");
+    }
+    function fmtDur(from,to){
+      const min = Math.max(0, Math.round((to-from)/60000));
+      const hh = Math.floor(min/60);
+      const mm = min%60;
+      return `${hh}h ${String(mm).padStart(2,"0")}m`;
+    }
+    function ceilStartedHours(ms){ return Math.ceil(ms/(1000*60*60)); }
+    function ceilStartedDays(ms){ return Math.ceil(ms/(1000*60*60*24)); }
+
+    // =========================
+    // =========================
+// =========================
+// PRICING LOGIC (CLEAN VERSION)
+// =========================
+
+function getBaselineFromPetName(nameRaw){
+  const name = (nameRaw||"").trim().toUpperCase();
+  if (!name) return DEFAULT_BASELINE;
+  return PETNAME_BASELINE_MAP[name] ?? DEFAULT_BASELINE;
+}
+
+function getRates(baseline){
+  return {
+    full: baseline,
+    daycare: baseline - 5,
+    overnight: baseline - 10,
+    extra: baseline - 10,
+  };
+}
+
+// ---------- EARLY DROP-OFF (STACKING) ----------
+
+function earlyDropoffSurcharges(start){
+  const items = [];
+  const startMin = minutesOfDay(start);
+  const cutoff08 = hmToMinutes("08:00");
+  if (startMin >= cutoff08) return items;
+
+  function addTier(fromHHMM, toHHMM, rate, labelEN, labelDE){
+    const fromMin = hmToMinutes(fromHHMM);
+    const toMin = hmToMinutes(toHHMM);
+
+    const segStart = Math.max(startMin, fromMin);
+    const segEnd = Math.min(cutoff08, toMin);
+    if (segEnd <= segStart) return;
+
+    const ms = (segEnd - segStart) * 60 * 1000;
+    const hrs = ceilStartedHours(ms);
+
+    items.push({
+      amount: hrs * rate,
+      labelEN,
+      labelDE
+    });
+  }
+
+  addTier("07:00","08:00",3,  "Early drop-off (07:00–07:59)", "Frühe Abgabe (07:00–07:59)");
+  addTier("06:00","07:00",5,  "Early drop-off (06:00–06:59)", "Frühe Abgabe (06:00–06:59)");
+  addTier("00:00","06:00",10, "Early drop-off (before 06:00)", "Frühe Abgabe (vor 06:00)");
+
+  return items;
+}
+
+// ---------- MAIN SEGMENT LOGIC ----------
+
+function computeSegments(start, end, baseline){
+  const rates = getRates(baseline);
+  const segs = [];
+
+  const sameDay = (a,b)=>
+    a.getFullYear()===b.getFullYear() &&
+    a.getMonth()===b.getMonth() &&
+    a.getDate()===b.getDate();
+
+  const addSeg = (obj)=>{
+    if (obj.to > obj.from) segs.push(obj);
+  };
+
+  let cursor = new Date(start);
+
+  // ---------- EVENING DROP-OFF → OVERNIGHT FIRST ----------
+  const sMin = minutesOfDay(cursor);
+  const inGrace = sMin>=hmToMinutes("18:00") && sMin<=hmToMinutes("18:59");
+  const isEvening = sMin>=hmToMinutes("19:00");
+
+  if (inGrace || isEvening){
+    const overnightFrom = inGrace ? atTimeOnDate(cursor,"19:00") : cursor;
+    const overnightTo = atTimeOnDate(addDays(cursor,1),"10:00");
+
+    addSeg({
+      type:"overnight",
+      labelKey:"segOvernight",
+      from: overnightFrom,
+      to: overnightTo,
+      price: rates.overnight
+    });
+
+    cursor = overnightTo;
+  }
+
+  // ---------- STANDALONE DAYTIME BOOKING ----------
+  if (segs.length === 0){
+
+    let daycareStart = new Date(cursor);
+    const anchor08 = atTimeOnDate(cursor,"08:00");
+    if (daycareStart < anchor08) daycareStart = anchor08;
+
+    // 🚨 IF PICKUP IS NEXT DAY → FULL DAY + OVERNIGHT
+    if (!sameDay(daycareStart, end)){
+      const fullFrom = new Date(daycareStart);
+      const fullTo = new Date(fullFrom.getTime() + 24*60*60*1000);
+
+      addSeg({
+        type:"full",
+        labelKey:"segFull",
+        from: fullFrom,
+        to: fullTo,
+        price: rates.full
+      });
+
+      return segs;
+    }
+
+    const includedEnd = new Date(daycareStart.getTime() + 12*60*60*1000); // 12h
+    const end22 = atTimeOnDate(daycareStart,"22:00");
+    const daycareIncludedEnd = new Date(Math.min(includedEnd.getTime(), end22.getTime()));
+
+    // If fully inside daycare window
+    if (end <= daycareIncludedEnd){
+      addSeg({
+        type:"daycare",
+        labelKey:"segDaycare",
+        from: daycareStart,
+        to: end,
+        price: rates.daycare
+      });
+      return segs;
+    }
+
+    // Charge full daycare window
+    addSeg({
+      type:"daycare",
+      labelKey:"segDaycare",
+      from: daycareStart,
+      to: daycareIncludedEnd,
+      price: rates.daycare
+    });
+
+    cursor = daycareIncludedEnd;
+
+    // ---------- EXTENSION / LATE ----------
+    const remainderMs = end - cursor;
+    const maxExtMs = 5*60*60*1000;
+
+    const cutoff22 = atTimeOnDate(cursor,"22:00");
+    const midnight = atTimeOnDate(addDays(cursor,1),"00:00");
+
+    if (remainderMs <= maxExtMs){
+
+      // before 22:00
+      if (cursor < cutoff22){
+        const extTo = new Date(Math.min(cutoff22.getTime(), end.getTime()));
+        if (extTo > cursor){
+          const hrs = ceilStartedHours(extTo - cursor);
+          addSeg({
+            type:"extension",
+            labelKey:"segExtension",
+            from: cursor,
+            to: extTo,
+            price: hrs * 3
+          });
+          cursor = extTo;
+        }
+      }
+
+      // 22:00–23:59
+      if (end > cutoff22){
+        const lateFrom = new Date(Math.max(cursor.getTime(), cutoff22.getTime()));
+        const lateTo = new Date(Math.min(end.getTime(), midnight.getTime()));
+        if (lateTo > lateFrom){
+          const hrs = ceilStartedHours(lateTo - lateFrom);
+          addSeg({
+            type:"late22",
+            labelKey:"segLate22",
+            from: lateFrom,
+            to: lateTo,
+            price: hrs * 5
+          });
+        }
+      }
+
+      return segs;
+    }
+
+    return segs;
+  }
+
+  // ---------- MULTI-DAY CONTINUATION ----------
+  while (end - cursor >= 24*60*60*1000){
+    const next = new Date(cursor.getTime() + 24*60*60*1000);
+    addSeg({
+      type:"full",
+      labelKey:"segFull",
+      from: cursor,
+      to: next,
+      price: rates.full
+    });
+    cursor = next;
+  }
+
+  if (end > cursor){
+    const endOfExtra = atTimeOnDate(cursor,"19:00");
+
+    if (end <= endOfExtra){
+      addSeg({
+        type:"extra",
+        labelKey:"segExtra",
+        from: cursor,
+        to: end,
+        price: rates.extra
+      });
+    } else {
+      addSeg({
+        type:"extra",
+        labelKey:"segExtra",
+        from: cursor,
+        to: endOfExtra,
+        price: rates.extra
+      });
+    }
+  }
+
+  return segs;
+}
+
+// Disable old latePickupFee (all handled inside computeSegments)
+function latePickupFee(){
+  return { hours:0, fee:0 };
+}
+    // =========================
+    // OUTPUT
+    // =========================
+    function calculate(){
+      const t = i18n[currentLang];
+      const errorEl = document.getElementById("error");
+      const resultEl = document.getElementById("result");
+      const copyRow = document.getElementById("copyRow");
+
+      errorEl.style.display = "none";
+      resultEl.style.display = "none";
+      copyRow.style.display = "none";
+      errorEl.textContent = "";
+      resultEl.textContent = "";
+
+      const dropDate = document.getElementById("dropDate").value;
+      const dropTime = document.getElementById("dropTime").value;
+      const pickDate = document.getElementById("pickDate").value;
+      const pickTime = document.getElementById("pickTime").value;
+
+      if (!dropDate || !dropTime || !pickDate || !pickTime){
+        errorEl.textContent = t.errMissing;
+        errorEl.style.display = "block";
+        return;
+      }
+
+      const start = new Date(`${dropDate}T${dropTime}:00`);
+      const end   = new Date(`${pickDate}T${pickTime}:00`);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())){
+        errorEl.textContent = t.errBad;
+        errorEl.style.display = "block";
+        return;
+      }
+      if (end <= start){
+        errorEl.textContent = t.errOrder;
+        errorEl.style.display = "block";
+        return;
+      }
+
+      const petNameRaw = document.getElementById("petName").value;
+      const baseline = getBaselineFromPetName(petNameRaw);
+
+      const wantCC = document.getElementById("constantCompany").checked;
+      const wantTier1 = document.getElementById("tier1").checked;
+      const wantTier2 = document.getElementById("tier2").checked;
+
+      const segs = computeSegments(start, end, baseline);
+
+      const early = earlyDropoffSurcharge(start);
+      const startedDays = ceilStartedDays(end - start);
+
+      const ccFee = wantCC ? startedDays * CONSTANT_COMPANY_PER_STARTED_24H : 0;
+      const tier1Fee = wantTier1 ? startedDays * TIER1_PER_STARTED_24H : 0;
+      const tier2Fee = wantTier2 ? startedDays * TIER2_PER_STARTED_24H : 0;
+
+      let total = 0;
+      for (const s of segs) total += s.price;
+      if (early) total += early.amount;
+      total += ccFee + tier1Fee + tier2Fee;
+
+      const lines = [];
+      lines.push(t.intro);
+      lines.push("");
+      lines.push(t.baselineLine(baseline));
+      lines.push("");
+
+      let idx = 1;
+      for (const s of segs){
+        const title = t[s.labelKey] || s.labelKey;
+        const range = `${fmtDT(s.from)} → ${fmtDT(s.to)} (${fmtDur(s.from,s.to)})`;
+        lines.push(`${idx}) ${title}`);
+        lines.push(`   ${range}`);
+        lines.push(`   €${s.price.toFixed(2)}`);
+        if (s.note==="grace") lines.push(`   ${t.graceNote}`);
+        if (s.estimate) lines.push(`   ${t.estimateNote}`);
+        lines.push("");
+        idx++;
+      }
+
+      if (early){
+        const label = currentLang==="de" ? early.labelDE : early.labelEN;
+        lines.push(`${idx}) ${label}`);
+        lines.push(`   €${early.amount.toFixed(2)}`);
+        lines.push("");
+        idx++;
+      }
+
+      if (wantCC){
+        lines.push(`${idx}) ${t.ccLine(startedDays, ccFee)}`);
+        lines.push("");
+        idx++;
+      }
+      if (wantTier1){
+        lines.push(`${idx}) ${t.tier1Line(startedDays, tier1Fee)}`);
+        lines.push("");
+        idx++;
+      }
+      if (wantTier2){
+        lines.push(`${idx}) ${t.tier2Line(startedDays, tier2Fee)}`);
+        lines.push("");
+        idx++;
+      }
+
+      lines.push(t.total(total));
+
+      resultEl.textContent = lines.join("\n");
+      resultEl.style.display = "block";
+      copyRow.style.display = "flex";
+    }
+
+    function copyResult(){
+      const txt = document.getElementById("result").textContent;
+      navigator.clipboard.writeText(txt);
+    }
+
+    setLanguage("en");
+  </script>
+</body>
+</html>
