@@ -247,32 +247,60 @@ export async function addStay(codeword, stay) {
   }
 }
 
-export async function syncLocalCustomersToCloud() {
+function stripStaysAndNonCustomerFields(detail) {
+  if (!detail || typeof detail !== "object") return {};
+  const { stays, ...rest } = detail;
+  return rest;
+}
+
+/**
+ * Merges in-repo defaults with the local `customers` entry so the API always receives
+ * a full row. Local values win (e.g. owner phone you saved in admin).
+ * Also guarantees non-empty customerName so POST /api/customer/upsert never 400s on edge cases.
+ */
+function mergeLocalCustomerForCloudSync(customer, petDetailsMap, legacyBaselines) {
+  const key = (customer.petCodeword || "").toLowerCase();
+  const defaults = stripStaysAndNonCustomerFields(petDetailsMap?.[key]);
+  const merged = { ...defaults, ...customer, petCodeword: key };
+  const name = String(merged.customerName || "").trim() || "Unknown pet parent";
+  const bpRaw = Number(merged.baseProfile);
+  const baseProfile = Number.isFinite(bpRaw) && bpRaw > 0
+    ? bpRaw
+    : (() => {
+        const leg = Number(legacyBaselines?.[key]);
+        return Number.isFinite(leg) && leg > 0 ? leg : 40;
+      })();
+  return { ...merged, customerName: name, baseProfile };
+}
+
+export async function syncLocalCustomersToCloud(petDetailsMap, legacyBaselines) {
   const data = read();
   const customers = Object.values(data.customers || {});
   if (!customers.length) return { synced: 0, total: 0 };
 
   let synced = 0;
   for (const customer of customers) {
+    const m = mergeLocalCustomerForCloudSync(customer, petDetailsMap, legacyBaselines);
+    const key = m.petCodeword;
     const payload = {
-      customerName: customer.customerName,
-      petCodeword: customer.petCodeword,
-      petDisplayName: customer.petDisplayName,
-      baseProfile: customer.baseProfile,
-      ageYears: customer.ageReferenceYears,
-      ageReferenceDate: customer.ageReferenceDate,
-      defaultCompanyNeed: customer.defaultCompanyNeed,
-      ownerEmail: customer.ownerEmail,
-      ownerPhone: customer.ownerPhone,
-      emergencyPhone: customer.emergencyPhone,
-      vetAddress: customer.vetAddress,
-      likes: customer.likes,
-      dislikes: customer.dislikes,
-      allergies: customer.allergies,
-      friends: customer.friends,
-      medicalNeeds: customer.medicalNeeds,
-      medicalHistory: customer.medicalHistory,
-      profileImage: customer.profileImage
+      customerName: m.customerName,
+      petCodeword: key,
+      petDisplayName: m.petDisplayName,
+      baseProfile: m.baseProfile,
+      ageYears: m.ageReferenceYears,
+      ageReferenceDate: m.ageReferenceDate,
+      defaultCompanyNeed: m.defaultCompanyNeed,
+      ownerEmail: m.ownerEmail,
+      ownerPhone: m.ownerPhone,
+      emergencyPhone: m.emergencyPhone,
+      vetAddress: m.vetAddress,
+      likes: m.likes,
+      dislikes: m.dislikes,
+      allergies: m.allergies,
+      friends: m.friends,
+      medicalNeeds: m.medicalNeeds,
+      medicalHistory: m.medicalHistory,
+      profileImage: m.profileImage
     };
     try {
       await callApi("/api/customer/upsert", { method: "POST", body: payload });
@@ -299,6 +327,7 @@ export async function seedMissingBuiltInPetsInCloud(petDetailsMap, legacyBaselin
     const hasContent =
       String(details.petDisplayName || "").trim() ||
       String(details.customerName || "").trim() ||
+      String(details.profileImage || "").trim() ||
       Number.isFinite(Number(details.ageReferenceYears)) ||
       String(details.likes || "").trim() ||
       String(details.medicalHistory || "").trim() ||
@@ -321,12 +350,15 @@ export async function seedMissingBuiltInPetsInCloud(petDetailsMap, legacyBaselin
     }
 
     const refRaw = String(details.ageReferenceDate || "").trim();
+    const displayTitle =
+      String(details.petDisplayName || "").trim() ||
+      (key ? key.charAt(0).toUpperCase() + key.slice(1) : key);
     const payload = {
       customerName: String(details.customerName || "").trim() || "Unknown pet parent",
       petCodeword: key,
       baseProfile,
       defaultCompanyNeed: Boolean(details.defaultCompanyNeed),
-      petDisplayName: String(details.petDisplayName || "").trim() || key,
+      petDisplayName: displayTitle,
       ageYears: Number.isFinite(Number(details.ageReferenceYears)) ? Number(details.ageReferenceYears) : null,
       ageReferenceDate: refRaw,
       ownerEmail: String(details.ownerEmail || "").trim(),

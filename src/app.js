@@ -677,16 +677,8 @@ window.addEventListener("hashchange", async () => {
 
 (async () => {
   const ui = readUiState();
-  await syncLocalCustomersToCloud();
-  if (!ui.builtInPetCloudSeedV1) {
-    const seedOut = await seedMissingBuiltInPetsInCloud(
-      DEFAULT_PET_PROFILE_DETAILS,
-      LEGACY_PET_PROFILES
-    );
-    if (seedOut?.ok) {
-      writeUiState({ builtInPetCloudSeedV1: true });
-    }
-  }
+  await syncLocalCustomersToCloud(DEFAULT_PET_PROFILE_DETAILS, LEGACY_PET_PROFILES);
+  await seedMissingBuiltInPetsInCloud(DEFAULT_PET_PROFILE_DETAILS, LEGACY_PET_PROFILES);
   if (ui.adminUnlocked) {
     isAdmin = true;
     byId("admin").classList.remove("hidden");
