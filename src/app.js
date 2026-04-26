@@ -113,11 +113,28 @@ function petParentHeadingHtml(customer) {
   return `${escAttr(label)}: ${escAttr(value)}`;
 }
 
+/**
+ * So empty `customerName` / [] `customerNames` from the API does not wipe the in-app defaults
+ * for a codeword (e.g. Bubbles + "Asli" in `DEFAULT_PET_PROFILE_DETAILS`).
+ */
+function omitEmptyNameFields(c) {
+  if (!c || typeof c !== "object") return c;
+  const out = { ...c };
+  if (String(out.customerName ?? "").trim() === "") {
+    delete out.customerName;
+  }
+  if (Array.isArray(out.customerNames) && out.customerNames.length === 0) {
+    delete out.customerNames;
+  }
+  return out;
+}
+
 function hydrateCustomerProfile(customer, codeword) {
   const key = (codeword || customer?.petCodeword || "").toLowerCase();
   const defaults = DEFAULT_PET_PROFILE_DETAILS[key] || {};
   const fromSaved = (customer && String(customer.profileImage || "").trim()) || "";
-  const merged = { ...defaults, ...customer, petCodeword: key || customer?.petCodeword || "" };
+  const c = omitEmptyNameFields(customer);
+  const merged = { ...defaults, ...c, petCodeword: key || customer?.petCodeword || "" };
   const nameParts = pickCustomerNameParts(merged);
   return {
     ...defaults,
@@ -192,7 +209,7 @@ async function prefillAdminFormForCurrentPet() {
   }
   const saved = await getCustomerByCodeword(codeword);
   const hydrated = hydrateCustomerProfile(
-    saved || { petCodeword: codeword, customerName: "" },
+    saved || { petCodeword: codeword },
     codeword
   );
   setAdminFormValues(hydrated);
@@ -231,11 +248,26 @@ async function updateCompanyQuestionVisibility(petNameRaw) {
 async function syncCalculatorOwnerFromPet(petNameRaw) {
   const petName = (petNameRaw || "").trim();
   const ownerField = byId("petParentName");
+  if (!petName) {
+    if (ownerField.readOnly) ownerField.value = "";
+    ownerField.readOnly = false;
+    ownerField.title = "";
+    return;
+  }
   const customer = await getCustomerByCodeword(petName);
-  if (customer) {
-    ownerField.value = pickCustomerNameParts(customer).join(" & ");
-    ownerField.readOnly = true;
-    ownerField.title = "Autofilled from saved pet profile";
+  const hydrated = hydrateCustomerProfile(
+    customer ? omitEmptyNameFields(customer) : { petCodeword: petName },
+    petName
+  );
+  const line = pickCustomerNameParts(hydrated)
+    .filter((n) => n && n !== "Unknown pet parent")
+    .join(" & ");
+  if (line) {
+    ownerField.value = line;
+    ownerField.readOnly = Boolean(customer);
+    ownerField.title = customer
+      ? "Autofilled from saved pet profile"
+      : "From built-in profile defaults; you can still edit for this quote.";
   } else {
     if (ownerField.readOnly) ownerField.value = "";
     ownerField.readOnly = false;
@@ -260,7 +292,9 @@ async function openPetAccountPage(codewordRaw, pushHash = true) {
 
   const snap = await getAccountSnapshot(activePetCodeword);
   const customer = hydrateCustomerProfile(
-    snap.customer || { customerName: "Unknown pet parent", petCodeword: activePetCodeword },
+    snap.customer
+      ? omitEmptyNameFields(snap.customer)
+      : { petCodeword: activePetCodeword },
     activePetCodeword
   );
   const displayName = (customer.petDisplayName || customer.petCodeword || "").toUpperCase();

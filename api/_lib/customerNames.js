@@ -14,7 +14,7 @@ export function customerNamesFromRow(row) {
       // fall through
     }
   }
-  const c = String(row.customer_name || "").trim();
+  const c = String(row?.customer_name ?? row?.customerName ?? "").trim();
   return c ? [c] : [];
 }
 
