@@ -24,6 +24,7 @@ function write(data) {
 async function callApi(path, options = {}) {
   const response = await fetch(path, {
     method: options.method || "GET",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {})
@@ -176,17 +177,30 @@ function localAddStay(codeword, stay) {
   return data.stays[key][data.stays[key].length - 1];
 }
 
+/**
+ * Tries to save to Postgres, then re-fetch account. On server failure, falls back to
+ * localStorage and sets serverError so the UI can warn (e.g. missing `customer_names` in DB).
+ * @returns {{ customer: object, serverError: string | null }}
+ */
 export async function upsertCustomer(input) {
+  const payload = {
+    ...input,
+    petCodeword: (input.petCodeword || "").toLowerCase()
+  };
   try {
-    const payload = {
-      ...input,
-      petCodeword: (input.petCodeword || "").toLowerCase()
-    };
     await callApi("/api/customer/upsert", { method: "POST", body: payload });
     const snap = await callApi(`/api/account?codeword=${encodeURIComponent(payload.petCodeword)}`);
-    return snap?.snapshot?.customer || localUpsertCustomer(input);
-  } catch {
-    return localUpsertCustomer(input);
+    const c = snap?.snapshot?.customer;
+    if (c) {
+      return { customer: c, serverError: null };
+    }
+    return {
+      customer: localUpsertCustomer(input),
+      serverError: "Server returned an empty customer after save. Check the database and /api/health."
+    };
+  } catch (e) {
+    const err = (e && e.message) || String(e);
+    return { customer: localUpsertCustomer(input), serverError: err };
   }
 }
 

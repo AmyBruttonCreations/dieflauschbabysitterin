@@ -1,4 +1,6 @@
 export function sendJson(res, status, payload) {
+  // Avoid browser/CDN serving stale JSON for the same /api/... URL (e.g. 304 after edits).
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   res.status(status).json(payload);
 }
 

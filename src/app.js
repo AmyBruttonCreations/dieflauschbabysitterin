@@ -600,7 +600,7 @@ byId("saveCustomerBtn").addEventListener("click", async () => {
     return;
   }
   const customerName = customerNames.join(" & ");
-  await upsertCustomer({
+  const { serverError } = await upsertCustomer({
     customerName,
     customerNames,
     petCodeword,
@@ -622,6 +622,11 @@ byId("saveCustomerBtn").addEventListener("click", async () => {
   });
   writeUiState({ lastPetCodeword: petCodeword.toLowerCase() });
   await renderAccount(petCodeword);
+  if (serverError) {
+    const hint =
+      "If the error mentions `customer_names` or a missing column, run the SQL in `db/migration_002_customer_names.sql` in the Neon console, then save again.\n\n";
+    byId("accountOutput").textContent = `Server save may have failed: ${serverError}\n\n${hint}${byId("accountOutput").textContent}`;
+  }
 });
 
 byId("addLedgerBtn").addEventListener("click", async () => {
