@@ -208,7 +208,7 @@ main {
 
 .photo-grid-join {
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0;
+  gap: 3px;
 }
 
 .join-footer {
@@ -225,6 +225,11 @@ main {
 
 .contact-details p {
   margin: 0 0 8px;
+}
+
+.contact-details p,
+.contact-details strong {
+  color: #f48b48;
 }
 
 .photo-tile {
@@ -267,6 +272,13 @@ main {
   object-fit: cover;
   border-radius: 14px;
   display: block;
+}
+
+.about-caption {
+  margin: -16px clamp(14px, 4vw, 46px) 16px;
+  font-size: 0.95rem;
+  color: #8b6d5b;
+  text-align: center;
 }
 
 .flags {
@@ -490,6 +502,7 @@ button {
   text-align: center;
   font-size: 1.35rem;
   margin: 2px 0 12px;
+  color: #f48b48;
 }
 
 .portraits-copy {
@@ -507,6 +520,7 @@ button {
   justify-content: center;
   margin: 0;
   overflow: hidden;
+  border-radius: 14px;
 }
 
 .portrait-tile img {
