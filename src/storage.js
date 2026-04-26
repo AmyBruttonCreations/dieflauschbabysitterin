@@ -246,3 +246,39 @@ export async function addStay(codeword, stay) {
     return localAddStay(key, stay);
   }
 }
+
+export async function syncLocalCustomersToCloud() {
+  const data = read();
+  const customers = Object.values(data.customers || {});
+  if (!customers.length) return { synced: 0, total: 0 };
+
+  let synced = 0;
+  for (const customer of customers) {
+    const payload = {
+      customerName: customer.customerName,
+      petCodeword: customer.petCodeword,
+      petDisplayName: customer.petDisplayName,
+      baseProfile: customer.baseProfile,
+      ageYears: customer.ageReferenceYears,
+      defaultCompanyNeed: customer.defaultCompanyNeed,
+      ownerEmail: customer.ownerEmail,
+      ownerPhone: customer.ownerPhone,
+      emergencyPhone: customer.emergencyPhone,
+      vetAddress: customer.vetAddress,
+      likes: customer.likes,
+      dislikes: customer.dislikes,
+      allergies: customer.allergies,
+      friends: customer.friends,
+      medicalNeeds: customer.medicalNeeds,
+      medicalHistory: customer.medicalHistory,
+      profileImage: customer.profileImage
+    };
+    try {
+      await callApi("/api/customer/upsert", { method: "POST", body: payload });
+      synced += 1;
+    } catch {
+      // keep going; caller can retry later
+    }
+  }
+  return { synced, total: customers.length };
+}

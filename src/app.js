@@ -1,5 +1,13 @@
 import { quoteStay } from "./pricingEngine.js";
-import { addLedgerEntry, addStay, getAccountSnapshot, getCustomerByCodeword, redeemReward, upsertCustomer } from "./storage.js";
+import {
+  addLedgerEntry,
+  addStay,
+  getAccountSnapshot,
+  getCustomerByCodeword,
+  redeemReward,
+  syncLocalCustomersToCloud,
+  upsertCustomer
+} from "./storage.js";
 
 const byId = (id) => document.getElementById(id);
 const LEGACY_PET_PROFILES = {
@@ -668,6 +676,12 @@ window.addEventListener("hashchange", async () => {
 
 (async () => {
   const ui = readUiState();
+  if (!ui.cloudCustomerSyncDone) {
+    const syncOut = await syncLocalCustomersToCloud();
+    if (syncOut.total === 0 || syncOut.synced > 0) {
+      writeUiState({ cloudCustomerSyncDone: true });
+    }
+  }
   if (ui.adminUnlocked) {
     isAdmin = true;
     byId("admin").classList.remove("hidden");
