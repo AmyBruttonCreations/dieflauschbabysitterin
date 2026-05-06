@@ -1,8 +1,8 @@
 const KEY = "flausch_v1_data";
 
 // Account read/write (customer + snapshot) use Postgres only — no flausch_v1_data fallback, so
-// the UI is never "lying" with browser-only data after a failed save. Ledger/stay/reward
-// can still use local fallbacks for now; local copy is also read for syncLocalCustomersToCloud.
+// the UI is never "lying" with browser-only data after a failed save. Standalone ledger manual lines,
+// stays, and rewards can still use local fallbacks when the API fails; local copy is also read for syncLocalCustomersToCloud.
 
 const initial = {
   customers: {},
@@ -35,10 +35,17 @@ async function callApi(path, options = {}) {
     },
     body: options.body ? JSON.stringify(options.body) : undefined
   });
-  if (!response.ok) {
-    throw new Error(`API ${response.status}: ${path}`);
+  const text = await response.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
   }
-  return response.json();
+  if (!response.ok) {
+    throw new Error(data.error || `API ${response.status}: ${path}`);
+  }
+  return data;
 }
 
 export function pickCustomerNameParts(obj) {
@@ -130,7 +137,7 @@ function localAddLedgerEntry(codeword, invoiceAmount, paidAmount) {
   };
   data.ledger[key].push(entry);
   if (!data.rewards[key]) data.rewards[key] = { points: 0, redemptions: [] };
-  data.rewards[key].points += Math.floor(Number(invoiceAmount));
+  data.rewards[key].points += Number(invoiceAmount) / 10;
   write(data);
   return entry;
 }
@@ -139,12 +146,16 @@ function localRedeemReward(codeword, rewardType) {
   const data = read();
   const key = (codeword || "").toLowerCase();
   if (!data.rewards[key]) data.rewards[key] = { points: 0, redemptions: [] };
-  const needed = rewardType === "portrait50" ? 500 : 600;
+  let rt = rewardType === "free2days" ? "free1day" : rewardType;
+  const needed = rt === "portrait50" || rt === "free1day" ? 100 : null;
+  if (needed == null) {
+    return { ok: false, needed: 100, points: data.rewards[key].points };
+  }
   if (data.rewards[key].points < needed) {
     return { ok: false, needed, points: data.rewards[key].points };
   }
   data.rewards[key].points -= needed;
-  data.rewards[key].redemptions.push({ at: new Date().toISOString(), rewardType, cost: needed });
+  data.rewards[key].redemptions.push({ at: new Date().toISOString(), rewardType: rt, cost: needed });
   write(data);
   return { ok: true, points: data.rewards[key].points };
 }
@@ -230,18 +241,33 @@ export async function getCustomerByCodeword(codeword) {
 
 export async function addLedgerEntry(codeword, invoiceAmount, paidAmount) {
   const key = (codeword || "").toLowerCase();
+  const body = { petCodeword: key, invoiceAmount, paidAmount };
   try {
     await callApi("/api/ledger/add", {
       method: "POST",
-      body: { petCodeword: key, invoiceAmount, paidAmount }
+      body
     });
     const snap = await getAccountSnapshot(key);
     const latest = snap.ledger[snap.ledger.length - 1];
-    if (latest) return latest;
+    if (!latest) throw new Error("Ledger saved but account snapshot did not update.");
+    return latest;
   } catch {
-    // fallback below
+    return localAddLedgerEntry(key, invoiceAmount, paidAmount);
   }
-  return localAddLedgerEntry(key, invoiceAmount, paidAmount);
+}
+
+/** Records payment on the stay row and adds Paw Points from invoice amount (€10 → 1 paw). No local fallback. */
+export async function markStayPaid(codeword, stayId, invoiceAmount, paidAmount) {
+  const key = (codeword || "").toLowerCase();
+  await callApi("/api/stay/mark-paid", {
+    method: "POST",
+    body: {
+      petCodeword: key,
+      stayId: String(stayId || "").trim(),
+      invoiceAmount,
+      paidAmount
+    }
+  });
 }
 
 export async function redeemReward(codeword, rewardType) {

@@ -621,6 +621,51 @@ img.account-avatar {
   margin-top: 2px;
 }
 
+.paw-points-card {
+  margin: 8px 0 28px;
+  padding: 18px 16px;
+  background: #fff;
+  border: 1px solid #e1cfc1;
+  border-radius: 12px;
+}
+
+.paw-points-card .title-standard {
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.paw-points-lead,
+.paw-points-total,
+.paw-points-until,
+.paw-points-unlocked,
+.paw-points-multi {
+  margin: 0 0 12px;
+  line-height: 1.45;
+  font-size: 1rem;
+}
+
+.paw-points-foot {
+  margin: 14px 0 0;
+  font-size: 0.85rem;
+}
+
+.paw-points-progress-wrap {
+  margin-top: 10px;
+}
+
+.paw-points-progress-track {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(60, 111, 139, 0.15);
+  overflow: hidden;
+}
+
+.paw-points-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #9cd6c5, #3c6f8b);
+  transition: width 0.35s ease;
+}
+
 .feed-grid {
   display: grid;
   gap: 10px;
@@ -735,6 +780,101 @@ img.account-avatar {
   display: grid;
   place-items: center;
   font-size: 0.8rem;
+}
+
+.timeline-photo-gallery .timeline-photo-thumb {
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(43, 27, 22, 0.15);
+}
+
+.timeline-photo-gallery .timeline-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.timeline-photo-row--planned {
+  grid-template-columns: 1fr;
+}
+
+.timeline-photo-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: rgba(43, 27, 22, 0.72);
+}
+
+.timeline-photo-hint code {
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.timeline-photo-hint-span,
+.timeline-photo-loading-span {
+  grid-column: 1 / -1;
+}
+
+.timeline-photo-loading-span {
+  font-size: 0.85rem;
+  color: rgba(43, 27, 22, 0.55);
+  padding: 4px 0;
+}
+
+.stay-mark-paid-wrap {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(43, 27, 22, 0.2);
+}
+
+.stay-mark-paid-btn {
+  font: inherit;
+  font-weight: 800;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #3c6f8b;
+  background: #fff;
+  color: #3c6f8b;
+  cursor: pointer;
+}
+
+.stay-mark-paid-btn:hover:not(:disabled) {
+  background: rgba(156, 214, 197, 0.35);
+}
+
+.stay-mark-paid-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.stay-mark-paid-hint {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(43, 27, 22, 0.68);
+}
+
+.stay-feed-heading {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stay-paid-badge {
+  font-family: "Nunito", "Segoe UI", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1f6b4a;
+  background: rgba(156, 214, 197, 0.55);
+  border: 1px solid rgba(31, 107, 74, 0.35);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .feed-card-header {

@@ -22,6 +22,20 @@ CREATE TABLE IF NOT EXISTS pets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS stays (
+  id TEXT PRIMARY KEY,
+  pet_codeword TEXT NOT NULL REFERENCES pets(codeword) ON DELETE CASCADE,
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'planned',
+  notes TEXT NOT NULL DEFAULT '',
+  invoice_amount NUMERIC(10, 2),
+  paid_amount NUMERIC(10, 2),
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_stays_pet_codeword ON stays(pet_codeword, start_at);
+
 CREATE TABLE IF NOT EXISTS ledger_entries (
   id BIGSERIAL PRIMARY KEY,
   pet_codeword TEXT NOT NULL REFERENCES pets(codeword) ON DELETE CASCADE,
@@ -34,7 +48,7 @@ CREATE INDEX IF NOT EXISTS idx_ledger_entries_pet_codeword ON ledger_entries(pet
 
 CREATE TABLE IF NOT EXISTS rewards (
   pet_codeword TEXT PRIMARY KEY REFERENCES pets(codeword) ON DELETE CASCADE,
-  points INTEGER NOT NULL DEFAULT 0
+  points NUMERIC(14, 6) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS reward_redemptions (
@@ -42,17 +56,6 @@ CREATE TABLE IF NOT EXISTS reward_redemptions (
   pet_codeword TEXT NOT NULL REFERENCES pets(codeword) ON DELETE CASCADE,
   at TIMESTAMPTZ NOT NULL DEFAULT now(),
   reward_type TEXT NOT NULL,
-  cost INTEGER NOT NULL
+  cost NUMERIC(14, 6) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_reward_redemptions_pet_codeword ON reward_redemptions(pet_codeword, at);
-
-CREATE TABLE IF NOT EXISTS stays (
-  id TEXT PRIMARY KEY,
-  pet_codeword TEXT NOT NULL REFERENCES pets(codeword) ON DELETE CASCADE,
-  start_at TIMESTAMPTZ NOT NULL,
-  end_at TIMESTAMPTZ NOT NULL,
-  status TEXT NOT NULL DEFAULT 'planned',
-  notes TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_stays_pet_codeword ON stays(pet_codeword, start_at);

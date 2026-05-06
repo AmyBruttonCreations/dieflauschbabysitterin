@@ -2,12 +2,27 @@ import { neon } from "@neondatabase/serverless";
 
 let sqlClient = null;
 
+function resolveDatabaseUrl() {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+
+  const envEntries = Object.entries(process.env || {});
+  const exactFallback = envEntries.find(([key, value]) =>
+    typeof value === "string" &&
+    value &&
+    (key.endsWith("_DATABASE_URL") || key.endsWith("_POSTGRES_URL"))
+  );
+  if (exactFallback) return exactFallback[1];
+
+  return null;
+}
+
 export function sql() {
   if (sqlClient) return sqlClient;
-  if (!process.env.DATABASE_URL) {
+  const databaseUrl = resolveDatabaseUrl();
+  if (!databaseUrl) {
     throw new Error("Missing DATABASE_URL environment variable.");
   }
-  sqlClient = neon(process.env.DATABASE_URL);
+  sqlClient = neon(databaseUrl);
   return sqlClient;
 }
 

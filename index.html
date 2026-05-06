@@ -183,13 +183,13 @@
       <button id="adminUnlockBtn">Unlock Admin Controls</button>
       <div id="adminState" class="muted-line">Admin mode is locked.</div>
       <div id="admin" class="hidden">
-      <h2>Customer Accounts + Ledger + Rewards</h2>
+      <h2>Customer accounts, stays &amp; rewards</h2>
       <div class="grid">
         <label>Pet parent 1 (name) <input id="customerName" type="text" /></label>
         <label>Pet parent 2 (optional) <input id="customerName2" type="text" placeholder="Second owner, for couples" /></label>
         <label>Pet codeword <input id="petCodeword" type="text" /></label>
         <label>Pet display name <input id="petDisplayName" type="text" placeholder="e.g. Bubbles" /></label>
-        <label>Profile image URL (optional) <input id="petProfileImage" type="text" placeholder="./bubbles-profile.png" /></label>
+        <label>Profile image URL (optional) <input id="petProfileImage" type="text" placeholder="./assets/pets/bubbles/profile.png" /></label>
         <label>Base profile
           <select id="baseProfile">
             <option value="30">30 EUR</option>
@@ -216,11 +216,12 @@
       </div>
       <button id="saveCustomerBtn">Save Customer</button>
       <hr />
+      <p class="muted-line">Manual ledger line — only for payments <strong>not</strong> tied to a timeline stay (bookings: mark the stay paid on the pet page).</p>
       <div class="grid">
         <label>Invoice amount <input id="invoiceAmount" type="number" step="0.01" /></label>
         <label>Paid amount <input id="paidAmount" type="number" step="0.01" /></label>
       </div>
-      <button id="addLedgerBtn">Add Ledger Entry</button>
+      <button id="addLedgerBtn">Add manual ledger line</button>
       <div class="grid">
         <label>Stay start <input id="stayStart" type="datetime-local" /></label>
         <label>Stay end <input id="stayEnd" type="datetime-local" /></label>
@@ -233,8 +234,8 @@
         <label>Stay notes <input id="stayNotes" type="text" placeholder="e.g. Easter stay" /></label>
       </div>
       <button id="addStayBtn">Add Stay To Timeline</button>
-      <button id="redeemPortraitBtn">Redeem portrait reward (50 EUR)</button>
-      <button id="redeemFreeDaysBtn">Redeem 2 free days</button>
+      <button id="redeemPortraitBtn">Redeem: €50 off portrait (100 Paw Points)</button>
+      <button id="redeemFreeDaysBtn">Redeem: one free sitting day (100 Paw Points)</button>
       <pre id="accountOutput" class="output"></pre>
       </div>
     </section>

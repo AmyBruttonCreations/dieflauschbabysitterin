@@ -34,7 +34,8 @@ export async function getAccountSnapshot(codeword) {
   });
 
   const staysRows = await db`
-    SELECT id, start_at, end_at, status, notes, created_at
+    SELECT id, start_at, end_at, status, notes, created_at,
+           invoice_amount, paid_amount, paid_at
     FROM stays
     WHERE pet_codeword = ${codeword}
     ORDER BY start_at ASC, id ASC
@@ -45,8 +46,18 @@ export async function getAccountSnapshot(codeword) {
     end: new Date(stay.end_at).toISOString(),
     status: stay.status,
     notes: stay.notes || "",
-    createdAt: new Date(stay.created_at).toISOString()
+    createdAt: new Date(stay.created_at).toISOString(),
+    invoiceAmount:
+      stay.invoice_amount != null && stay.paid_at != null ? Number(stay.invoice_amount) : null,
+    paidAmount: stay.paid_amount != null && stay.paid_at != null ? Number(stay.paid_amount) : null,
+    paidAt: stay.paid_at ? new Date(stay.paid_at).toISOString() : null
   }));
+
+  for (const stay of staysRows) {
+    if (stay.paid_at != null && stay.invoice_amount != null && stay.paid_amount != null) {
+      runningBalance += Number(stay.paid_amount) - Number(stay.invoice_amount);
+    }
+  }
 
   const [reward] = await db`SELECT points FROM rewards WHERE pet_codeword = ${codeword} LIMIT 1`;
   const redemptionsRows = await db`

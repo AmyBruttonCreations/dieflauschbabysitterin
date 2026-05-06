@@ -4,8 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "npm run dev:full",
+    "dev:full": "vercel dev",
+    "dev:static": "serve .",
     "test": "node --test",
-    "start": "npx serve ."
+    "start": "serve .",
+    "stay:dirs": "node scripts/sync-stay-photo-dirs.mjs",
+    "stay:photos": "node scripts/generate-stay-photo-manifests.mjs",
+    "stay:sync": "npm run stay:dirs && npm run stay:photos",
+    "rewards:reconcile": "node scripts/reconcile-rewards-from-ledger.mjs"
+  },
+  "devDependencies": {
+    "serve": "^14.2.6",
+    "vercel": "^48.12.1"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"

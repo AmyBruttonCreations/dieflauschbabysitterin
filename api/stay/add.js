@@ -14,15 +14,17 @@ export default async function handler(req, res) {
     }
 
     const stayId = String(body.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    await sql()`
+    const status = String(body.status || "planned");
+    const notes = String(body.notes || "");
+    const inserted = await sql()`
       INSERT INTO stays (id, pet_codeword, start_at, end_at, status, notes)
-      VALUES (
-        ${stayId}, ${codeword}, ${start}, ${end},
-        ${String(body.status || "planned")}, ${String(body.notes || "")}
-      )
+      VALUES (${stayId}, ${codeword}, ${start}, ${end}, ${status}, ${notes})
+      ON CONFLICT (id) DO NOTHING
+      RETURNING id
     `;
+    const created = inserted.length > 0;
 
-    return sendJson(res, 200, { ok: true, id: stayId });
+    return sendJson(res, 200, { ok: true, id: stayId, created });
   } catch (error) {
     return sendJson(res, 500, { ok: false, error: error.message });
   }

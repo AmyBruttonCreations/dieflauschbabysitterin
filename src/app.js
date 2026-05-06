@@ -1,13 +1,21 @@
+import {
+  formatPawPointsDisplay,
+  fullRewardsUnlockedCount,
+  pawPointsRemainingUntilNextReward,
+  progressTowardNextReward,
+  PAWS_PER_REWARD
+} from "./pawPoints.js";
 import { quoteStay } from "./pricingEngine.js";
+import { DEFAULT_PET_PROFILE_DETAILS } from "./petDefaults.js";
 import {
   addLedgerEntry,
   addStay,
   getAccountSnapshot,
   getCustomerByCodeword,
+  markStayPaid,
   pickCustomerNameParts,
   redeemReward,
   seedMissingBuiltInPetsInCloud,
-  syncLocalCustomersToCloud,
   upsertCustomer
 } from "./storage.js";
 
@@ -22,43 +30,6 @@ const LEGACY_PET_PROFILES = {
 const DISCOUNT_CODE_BASELINES = {
   friend35: 35,
   friend30: 30
-};
-const DEFAULT_PET_PROFILE_DETAILS = {
-  borja: {
-    profileImage: "./borja-profile.png"
-  },
-  bubbles: {
-    profileImage: "./bubbles-profile.png",
-    petDisplayName: "Bubbles",
-    ageReferenceYears: 4,
-    ageReferenceDate: "2026-04-24T00:00:00.000Z",
-    likes: "Dogs who look like her",
-    dislikes: "Dogs who don't",
-    allergies: "None",
-    defaultCompanyNeed: false,
-    medicalHistory: "Claw issues",
-    medicalNeeds: "None",
-    vetAddress: "Pending from Asli",
-    customerName: "Asli",
-    stays: [
-      {
-        id: "bubbles-2026-04-18",
-        start: "2026-04-18T09:30:00.000Z",
-        end: "2026-04-24T17:30:00.000Z",
-        status: "completed",
-        notes: "Spring stay",
-        createdAt: "2026-04-24T17:31:00.000Z"
-      },
-      {
-        id: "bubbles-2026-05-04",
-        start: "2026-05-04T09:30:00.000Z",
-        end: "2026-05-08T17:30:00.000Z",
-        status: "planned",
-        notes: "Upcoming May stay",
-        createdAt: "2026-04-24T19:40:00.000Z"
-      }
-    ]
-  }
 };
 const ADMIN_PASSCODE = "amy-admin";
 const UI_STATE_KEY = "flausch_ui_state";
@@ -97,6 +68,103 @@ function escAttr(s) {
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;");
+}
+
+function stayGalleryManifestUrl(codeword, stayId) {
+  const cw = encodeURIComponent(codeword);
+  const id = encodeURIComponent(stayId);
+  return `./assets/pets/${cw}/stays/${id}/photos.json`;
+}
+
+function calculatorTotalForStay(customer, codewordLower, stay) {
+  const baseline =
+    Number(customer?.baseProfile) ||
+    LEGACY_PET_PROFILES[codewordLower] ||
+    40;
+  const dropoff = new Date(stay.start);
+  const pickup = new Date(stay.end);
+  const quote = quoteStay({
+    dropoff,
+    pickup,
+    baseline,
+    constantCompany: Boolean(customer?.defaultCompanyNeed)
+  });
+  return { quote, baseline };
+}
+
+function wireStayMarkPaidButtons(container, codewordLower, customer) {
+  if (!isAdmin || !container) return;
+  container.querySelectorAll("button[data-stay-mark-paid]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const stayIdAttr = btn.getAttribute("data-stay-db-id");
+      if (!stayIdAttr) return;
+      const start = btn.getAttribute("data-stay-start");
+      const end = btn.getAttribute("data-stay-end");
+      if (!start || !end) return;
+      const stay = { start, end };
+      let quoteResult;
+      try {
+        quoteResult = calculatorTotalForStay(customer, codewordLower, stay);
+      } catch (e) {
+        window.alert(
+          `Could not calculate a price for these dates: ${(e && e.message) || String(e)}`
+        );
+        return;
+      }
+      const { quote } = quoteResult;
+      const amount = Math.round(quote.total * 100) / 100;
+      const summary = [
+        `Calculator total for this stay: ${fmtMoney(amount)}`,
+        `(baseline ${fmtMoney(quote.baseline)}, constant-company fee ${fmtMoney(
+          quote.surcharges.constantCompanyFee
+        )} — same rules as the stay calculator, no last‑minute booking surcharge.)`,
+        "",
+        `Mark this stay paid with invoice and paid both ${fmtMoney(amount)}?`,
+        "That records payment on the stay and adds Paw Points (€10 of invoice amount → 1 Paw Point). It does not change whether the stay shows as ongoing or completed on the timeline."
+      ].join("\n");
+      if (!window.confirm(summary)) return;
+      btn.disabled = true;
+      try {
+        await markStayPaid(codewordLower, stayIdAttr, amount, amount);
+        await openPetAccountPage(codewordLower, false);
+      } catch (err) {
+        window.alert(`Could not save payment: ${(err && err.message) || String(err)}`);
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+async function hydrateStayPhotoGalleries() {
+  const container = byId("petAccountPageContent");
+  if (!container) return;
+  const rows = container.querySelectorAll(".timeline-photo-gallery[data-stay-id]");
+  for (const row of rows) {
+    const cw = row.getAttribute("data-stay-codeword");
+    const stayId = row.getAttribute("data-stay-id");
+    if (!cw || !stayId) continue;
+    try {
+      const res = await fetch(stayGalleryManifestUrl(cw, stayId), { cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      const imgs = Array.isArray(data.images) ? data.images : [];
+      if (!imgs.length) {
+        row.innerHTML =
+          '<p class="timeline-photo-hint timeline-photo-hint-span">No photos yet. Drop images into this stay\'s folder, then run <code>npm run stay:photos</code> and refresh.</p>';
+        continue;
+      }
+      row.innerHTML = imgs
+        .slice(0, 24)
+        .map(
+          (src) =>
+            `<div class="timeline-photo-thumb"><img src="${escAttr(src)}" alt="" loading="lazy" /></div>`
+        )
+        .join("");
+    } catch {
+      row.innerHTML =
+        '<p class="timeline-photo-hint timeline-photo-hint-span">Gallery not ready. Run <code>npm run stay:dirs</code>, add photos to <code>assets/pets/…/stays/…/</code>, then <code>npm run stay:photos</code>.</p>';
+    }
+  }
 }
 
 function formatGreetingNames(names) {
@@ -275,6 +343,58 @@ async function syncCalculatorOwnerFromPet(petNameRaw) {
   }
 }
 
+function buildPawPointsPanelHtml(totalPawsRaw) {
+  const p = Number(totalPawsRaw) || 0;
+  const display = formatPawPointsDisplay(p);
+  const unlocked = fullRewardsUnlockedCount(p);
+  const remaining = pawPointsRemainingUntilNextReward(p);
+  const progressPct = Math.min(100, Math.round(progressTowardNextReward(p) * 100));
+  const unlockedMsg =
+    unlocked >= 1
+      ? `<p class="paw-points-unlocked"><strong>Reward unlocked!</strong> Choose either €50 off a custom pet portrait or one free day of pet sitting.</p>${
+          unlocked > 1
+            ? `<p class="paw-points-multi">You have <strong>${unlocked}</strong> thank-you rewards saved up — redeem one at a time.</p>`
+            : ""
+        }`
+      : "";
+  const untilMsg =
+    remaining > 0
+      ? `<p class="paw-points-until"><strong>${formatPawPointsDisplay(remaining)}</strong> Paw Points until your next reward.</p>`
+      : unlocked >= 1
+        ? `<p class="paw-points-until">Collect Paw Points toward your next thank-you reward.</p>`
+        : "";
+
+  return `
+    <section class="paw-points-card" aria-labelledby="paw-points-heading">
+      <h3 id="paw-points-heading" class="title-standard title-blue">Paw Points</h3>
+      <p class="paw-points-lead">As a little thank-you for regular bookings, every €10 spent on pet sitting earns 1 Paw Point.</p>
+      <p class="paw-points-total">You have <strong>${escAttr(display)}</strong> Paw Points.</p>
+      ${untilMsg}
+      ${unlockedMsg}
+      <div class="paw-points-progress-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}" aria-label="Progress toward your next Paw Points reward">
+        <div class="paw-points-progress-track">
+          <div class="paw-points-progress-fill" style="width:${progressPct}%"></div>
+        </div>
+      </div>
+      <p class="paw-points-foot muted-line">Paw Points come from completed bookings when you mark a stay paid (€10 of invoice → 1 Paw Point), or from optional manual ledger lines that aren’t tied to the timeline. Rewards can be redeemed once ${PAWS_PER_REWARD} Paw Points have been collected and cannot be exchanged for cash.</p>
+    </section>
+  `;
+}
+
+/** Timeline chip label: planned → ongoing while stay window includes “now”. */
+function stayTimelinePresentation(stay, now = new Date()) {
+  if (stay.status === "completed") {
+    return { chip: "Completed stay", heading: "Completed stay", phase: "completed" };
+  }
+  const t = now.getTime();
+  const start = new Date(stay.start).getTime();
+  const end = new Date(stay.end).getTime();
+  if (stay.status === "planned" && t >= start && t <= end) {
+    return { chip: "Ongoing stay", heading: "Ongoing stay", phase: "ongoing" };
+  }
+  return { chip: "Planned stay", heading: "Planned stay", phase: "planned" };
+}
+
 function togglePetPageMode(showPetPage) {
   const sections = Array.from(document.querySelectorAll("main > section.card"));
   sections.forEach((section) => {
@@ -325,47 +445,84 @@ async function openPetAccountPage(codewordRaw, pushHash = true) {
   const detailsHtml = detailRows.map((row) => `<div class="metric-card"><span>${row.label}</span><strong>${row.value}</strong></div>`).join("");
 
   const timelineStartTs = new Date("2026-01-01T00:00:00.000Z").getTime();
-  const mergedStays = [...(DEFAULT_PET_PROFILE_DETAILS[codeword]?.stays || []), ...(snap.stays || [])];
   const uniqueStayMap = new Map();
-  mergedStays.forEach((stay) => uniqueStayMap.set(stay.id || `${stay.start}-${stay.end}`, stay));
+  (snap.stays || []).forEach((stay) => uniqueStayMap.set(stay.id || `${stay.start}-${stay.end}`, stay));
   const filteredStays = [...uniqueStayMap.values()].filter((stay) => new Date(stay.end || stay.start).getTime() >= timelineStartTs);
 
-  const stayEvents = filteredStays.map((stay) => ({
-    ts: new Date(stay.start || stay.createdAt || Date.now()).getTime(),
-    chip: stay.status === "planned" ? "Planned stay" : "Completed stay",
-    html: `
+  const dbStayIds = new Set((snap.stays || []).map((s) => s.id).filter(Boolean));
+
+  const stayEvents = filteredStays.map((stay) => {
+    const stayKey = stay.id || `${stay.start}-${stay.end}`;
+    const pres = stayTimelinePresentation(stay);
+    const stayPaid = Boolean(stay.paidAt);
+    const stayRowInDb = Boolean(stay.id && dbStayIds.has(stay.id));
+    const showCalculatorPaidBtn =
+      isAdmin && stay.status === "completed" && stayRowInDb && !stayPaid;
+
+    const markPaidHtml = showCalculatorPaidBtn
+      ? `<div class="stay-mark-paid-wrap">
+          <button type="button" class="stay-mark-paid-btn" data-stay-mark-paid data-stay-db-id="${escAttr(
+            stay.id
+          )}" data-stay-start="${escAttr(stay.start)}" data-stay-end="${escAttr(stay.end)}">
+            Mark stay paid (Paw Points)
+          </button>
+          <p class="stay-mark-paid-hint">
+            Uses this pet’s saved profile and the same pricing rules as the calculator (no short‑notice surcharge).
+            If the amount differs from what you invoiced, use Admin → manual ledger line (without marking this stay paid).
+          </p>
+        </div>`
+      : "";
+
+    const missingStayHintHtml =
+      isAdmin && stay.status === "completed" && stay.id && !stayRowInDb && !stayPaid
+        ? `<p class="stay-mark-paid-hint">Marking paid requires this stay to exist in the database — add it in Admin with the same dates/status.</p>`
+        : "";
+
+    const galleryHtml =
+      pres.phase === "completed"
+        ? `<div class="timeline-photo-row timeline-photo-gallery" data-stay-codeword="${escAttr(
+            codeword
+          )}" data-stay-id="${escAttr(stayKey)}">
+          <div class="timeline-photo-loading timeline-photo-loading-span">Loading gallery…</div>
+        </div>`
+        : pres.phase === "ongoing"
+          ? `<div class="timeline-photo-row timeline-photo-row--planned">
+          <p class="timeline-photo-hint">Photo gallery will be available after this stay is completed.</p>
+        </div>`
+          : `<div class="timeline-photo-row timeline-photo-row--planned">
+          <p class="timeline-photo-hint">
+            When this stay is completed, photos can live in
+            <code>assets/pets/${escAttr(codeword)}/stays/${escAttr(stayKey)}/</code>
+            — run <code>npm run stay:sync</code> after adding stays or images.
+          </p>
+        </div>`;
+    const chipLabel = stayPaid ? `${pres.chip} · Paid` : pres.chip;
+    const paidBadgeHtml = stayPaid
+      ? `<span class="stay-paid-badge" title="Payment recorded on this stay — Paw Points counted">Paid</span>`
+      : "";
+
+    return {
+      ts: new Date(stay.start || stay.createdAt || Date.now()).getTime(),
+      chip: chipLabel,
+      html: `
       <article class="timeline-card">
         <div class="feed-card-header">
-          <strong>${stay.status === "planned" ? "Planned stay" : "Completed stay"}</strong>
+          <span class="stay-feed-heading">
+            <strong>${escAttr(pres.heading)}</strong>
+            ${paidBadgeHtml}
+          </span>
           <span>${new Date(stay.start).toLocaleString()}</span>
         </div>
         <div>${new Date(stay.start).toLocaleString()} -> ${new Date(stay.end).toLocaleString()}</div>
         ${stay.notes ? `<div>Notes: ${stay.notes}</div>` : ""}
-        <div class="timeline-photo-row">
-          <div class="timeline-photo-placeholder">PHOTO</div>
-          <div class="timeline-photo-placeholder">PHOTO</div>
-          <div class="timeline-photo-placeholder">PHOTO</div>
-        </div>
+        ${missingStayHintHtml}
+        ${markPaidHtml}
+        ${galleryHtml}
       </article>
     `
-  }));
-  const ledgerEvents = (snap.ledger || [])
-    .filter((entry) => new Date(entry.at).getTime() >= timelineStartTs)
-    .map((entry) => ({
-    ts: new Date(entry.at).getTime(),
-    chip: "Payment",
-    html: `
-      <article class="timeline-card">
-        <div class="feed-card-header">
-          <strong>Payment update</strong>
-          <span>${new Date(entry.at).toLocaleString()}</span>
-        </div>
-        <div>Invoice: ${fmtMoney(entry.invoiceAmount)} | Paid: ${fmtMoney(entry.paidAmount)}</div>
-        <div>Balance change: ${fmtMoney(entry.delta)} | Running balance: ${fmtMoney(entry.balanceAfter)}</div>
-      </article>
-    `
-  }));
-  const timelineEvents = [...stayEvents, ...ledgerEvents].sort((a, b) => a.ts - b.ts);
+    };
+  });
+  const timelineEvents = [...stayEvents].sort((a, b) => a.ts - b.ts);
   const laneMap = new Map();
   for (const event of timelineEvents) {
     const d = new Date(event.ts);
@@ -423,6 +580,7 @@ async function openPetAccountPage(codewordRaw, pushHash = true) {
     </div>
     <h3 class="title-standard title-blue">Profile</h3>
     <div class="account-metrics">${detailsHtml}</div>
+    ${buildPawPointsPanelHtml(snap.rewards?.points ?? 0)}
     <h3 class="title-standard title-orange">Timeline</h3>
     <div class="timeline-shell">
       <div class="timeline-start-label">Timeline start: 01 Jan 2026</div>
@@ -433,14 +591,22 @@ async function openPetAccountPage(codewordRaw, pushHash = true) {
   togglePetPageMode(true);
   if (pushHash) window.location.hash = `pet/${encodeURIComponent(codeword)}`;
 
-  byId("petAccountPageContent").querySelectorAll(".timeline-chip").forEach((chip) => {
+  const petPageContent = byId("petAccountPageContent");
+  petPageContent.querySelectorAll(".timeline-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       const id = chip.getAttribute("data-event-id");
       const card = byId(id);
       if (!card) return;
-      card.classList.toggle("hidden");
+      const willOpen = card.classList.contains("hidden");
+      petPageContent.querySelectorAll(".timeline-h-card").forEach((panel) => {
+        panel.classList.add("hidden");
+      });
+      if (willOpen) card.classList.remove("hidden");
     });
   });
+
+  await hydrateStayPhotoGalleries();
+  wireStayMarkPaidButtons(byId("petAccountPageContent"), codeword, customer);
 }
 
 function closePetAccountPage(pushHash = true) {
@@ -622,6 +788,10 @@ byId("saveCustomerBtn").addEventListener("click", async () => {
   });
   writeUiState({ lastPetCodeword: petCodeword.toLowerCase() });
   await renderAccount(petCodeword);
+  if (!byId("petAccountPage").classList.contains("hidden")) {
+    activePetCodeword = petCodeword.toLowerCase();
+    await openPetAccountPage(activePetCodeword, false);
+  }
   if (serverError) {
     const hint =
       "If the error mentions `customer_names` or a missing column, run the SQL in `db/migration_002_customer_names.sql` in the Neon console, then save again.\n\n";
@@ -668,13 +838,29 @@ byId("redeemPortraitBtn").addEventListener("click", async () => {
   const out = await redeemReward(petCodeword, "portrait50");
   byId("accountOutput").textContent = JSON.stringify(out, null, 2);
   await renderAccount(petCodeword);
+  if (
+    activePetCodeword &&
+    petCodeword &&
+    activePetCodeword === petCodeword.toLowerCase() &&
+    !byId("petAccountPage").classList.contains("hidden")
+  ) {
+    await openPetAccountPage(activePetCodeword, false);
+  }
 });
 
 byId("redeemFreeDaysBtn").addEventListener("click", async () => {
   const petCodeword = byId("petCodeword").value.trim();
-  const out = await redeemReward(petCodeword, "free2days");
+  const out = await redeemReward(petCodeword, "free1day");
   byId("accountOutput").textContent = JSON.stringify(out, null, 2);
   await renderAccount(petCodeword);
+  if (
+    activePetCodeword &&
+    petCodeword &&
+    activePetCodeword === petCodeword.toLowerCase() &&
+    !byId("petAccountPage").classList.contains("hidden")
+  ) {
+    await openPetAccountPage(activePetCodeword, false);
+  }
 });
 
 (() => {
@@ -740,7 +926,6 @@ window.addEventListener("hashchange", async () => {
 
 (async () => {
   const ui = readUiState();
-  await syncLocalCustomersToCloud(DEFAULT_PET_PROFILE_DETAILS, LEGACY_PET_PROFILES);
   await seedMissingBuiltInPetsInCloud(DEFAULT_PET_PROFILE_DETAILS, LEGACY_PET_PROFILES);
   if (ui.adminUnlocked) {
     isAdmin = true;

@@ -1,5 +1,6 @@
 import { normalizeCodeword, sql } from "../_lib/db.js";
 import { methodNotAllowed, parseJsonBody, sendJson } from "../_lib/http.js";
+import { pawCostForRewardType } from "../_lib/pawRewards.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return methodNotAllowed(res, ["POST"]);
@@ -7,11 +8,17 @@ export default async function handler(req, res) {
   try {
     const body = await parseJsonBody(req);
     const codeword = normalizeCodeword(body.petCodeword || body.codeword);
-    const rewardType = String(body.rewardType || "");
+    let rewardType = String(body.rewardType || "");
     if (!codeword || !rewardType) {
       return sendJson(res, 400, { ok: false, error: "petCodeword and rewardType are required." });
     }
-    const needed = rewardType === "portrait50" ? 500 : 600;
+    if (rewardType === "free2days") rewardType = "free1day";
+
+    const needed = pawCostForRewardType(rewardType);
+    if (needed == null) {
+      return sendJson(res, 400, { ok: false, error: "Unknown rewardType." });
+    }
+
     const db = sql();
     const [reward] = await db`SELECT points FROM rewards WHERE pet_codeword = ${codeword} LIMIT 1`;
     const points = Number(reward?.points || 0);
