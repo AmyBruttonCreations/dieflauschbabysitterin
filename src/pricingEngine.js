@@ -1,5 +1,35 @@
 const EXTRA_SEASON_RANGES = [];
 
+/** € per calendar day (stay length in hours ÷ 24) when the pet profile has active medical needs. */
+export const MEDICAL_NEEDS_FEE_PER_BLOCK = 5;
+
+const MEDICAL_NEEDS_NONE = new Set([
+  "",
+  "none",
+  "n/a",
+  "na",
+  "no",
+  "none listed",
+  "not listed yet",
+  "no medical needs"
+]);
+
+/** True when medical_needs is filled in with something other than “none”-style placeholders. */
+export function petHasMedicalNeeds(medicalNeedsText) {
+  const s = String(medicalNeedsText || "").trim().toLowerCase();
+  return Boolean(s) && !MEDICAL_NEEDS_NONE.has(s);
+}
+
+/** Uses saved profile fields (needs first; history counts if needs is empty). */
+export function petHasMedicalNeedsFromProfile(profile) {
+  if (!profile || typeof profile !== "object") return false;
+  const needs = String(profile.medicalNeeds || "").trim();
+  const history = String(profile.medicalHistory || "").trim();
+  if (petHasMedicalNeeds(needs)) return true;
+  if (!needs && petHasMedicalNeeds(history)) return true;
+  return false;
+}
+
 function addHours(date, h) {
   return new Date(date.getTime() + h * 3600000);
 }
@@ -188,14 +218,14 @@ function seasonalSurcharge(dropoff, pickup) {
   return total;
 }
 
-export function quoteStay({ dropoff, pickup, baseline, constantCompany }) {
+export function quoteStay({ dropoff, pickup, baseline, constantCompany, medicalNeeds = false }) {
   if (!(dropoff instanceof Date) || Number.isNaN(dropoff.getTime())) throw new Error("Invalid dropoff");
   if (!(pickup instanceof Date) || Number.isNaN(pickup.getTime())) throw new Error("Invalid pickup");
   if (pickup <= dropoff) throw new Error("Pickup must be after dropoff");
 
   const rates = {
     baseline,
-    daycare: baseline - 5,
+    daycare: baseline - 10,
     overnight: baseline - 10,
     extraDaycare: baseline - 10
   };
@@ -206,12 +236,24 @@ export function quoteStay({ dropoff, pickup, baseline, constantCompany }) {
   const seasonal = seasonalSurcharge(dropoff, pickup);
   const ccBlocks = Math.max(1, Math.ceil(diffHours(dropoff, pickup) / 24));
   const constantCompanyFee = constantCompany ? ccBlocks * 5 : 0;
+  const stayCalendarDays = diffHours(dropoff, pickup) / 24;
+  const medicalNeedsFee = medicalNeeds
+    ? Math.round(stayCalendarDays * MEDICAL_NEEDS_FEE_PER_BLOCK * 100) / 100
+    : 0;
 
-  const total = plan.cost + early + lateDropoff + seasonal + constantCompanyFee;
+  const total = plan.cost + early + lateDropoff + seasonal + constantCompanyFee + medicalNeedsFee;
   return {
     baseline,
     plan,
-    surcharges: { early, lateDropoff, seasonal, constantCompanyFee },
+    surcharges: {
+      early,
+      lateDropoff,
+      seasonal,
+      constantCompanyFee,
+      medicalNeedsFee,
+      medicalNeedsRatePerDay: MEDICAL_NEEDS_FEE_PER_BLOCK,
+      medicalNeedsCalendarDays: medicalNeeds ? stayCalendarDays : 0
+    },
     total
   };
 }

@@ -5,7 +5,14 @@ import {
   progressTowardNextReward,
   PAWS_PER_REWARD
 } from "./pawPoints.js";
-import { quoteStay } from "./pricingEngine.js";
+import {
+  buildQuoteBreakdown,
+  calcModeMessage as getCalcModeMessageText,
+  defaultBookingRequestMessage,
+  formatMedicalNeedsSurchargeLine,
+  normalizeQuoteLanguage
+} from "./quoteMessages.js";
+import { quoteStay, petHasMedicalNeedsFromProfile } from "./pricingEngine.js";
 import { DEFAULT_PET_PROFILE_DETAILS } from "./petDefaults.js";
 import {
   addLedgerEntry,
@@ -38,6 +45,10 @@ let activePetCodeword = "";
 
 function fmtMoney(n) {
   return `${Number(n).toFixed(2)} EUR`;
+}
+
+function resolveQuoteLanguage(customer, hydrated) {
+  return normalizeQuoteLanguage(customer?.quoteLanguage ?? hydrated?.quoteLanguage);
 }
 
 function fmtDate(d) {
@@ -87,7 +98,8 @@ function calculatorTotalForStay(customer, codewordLower, stay) {
     dropoff,
     pickup,
     baseline,
-    constantCompany: Boolean(customer?.defaultCompanyNeed)
+    constantCompany: Boolean(customer?.defaultCompanyNeed),
+    medicalNeeds: petHasMedicalNeedsFromProfile(customer)
   });
   return { quote, baseline };
 }
@@ -117,7 +129,7 @@ function wireStayMarkPaidButtons(container, codewordLower, customer) {
         `Calculator total for this stay: ${fmtMoney(amount)}`,
         `(baseline ${fmtMoney(quote.baseline)}, constant-company fee ${fmtMoney(
           quote.surcharges.constantCompanyFee
-        )} — same rules as the stay calculator, no last‑minute booking surcharge.)`,
+        )}, ${formatMedicalNeedsSurchargeLine(resolveQuoteLanguage(customer, customer), quote.surcharges)} — same rules as the stay calculator, no last‑minute booking surcharge.)`,
         "",
         `Mark this stay paid with invoice and paid both ${fmtMoney(amount)}?`,
         "That records payment on the stay and adds Paw Points (€10 of invoice amount → 1 Paw Point). It does not change whether the stay shows as ongoing or completed on the timeline."
@@ -172,6 +184,16 @@ function formatGreetingNames(names) {
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} and ${names[1]}`;
   return names.join(" and ");
+}
+
+function resolveCalculatorBaseline(hydrated, codewordLower, discountCode) {
+  const fromProfile = Number(hydrated?.baseProfile);
+  if (Number.isFinite(fromProfile) && fromProfile > 0) return fromProfile;
+  const legacy = LEGACY_PET_PROFILES[codewordLower];
+  if (Number.isFinite(legacy) && legacy > 0) return legacy;
+  const fromCode = DISCOUNT_CODE_BASELINES[discountCode];
+  if (Number.isFinite(fromCode) && fromCode > 0) return fromCode;
+  return 40;
 }
 
 function petParentHeadingHtml(customer) {
@@ -257,6 +279,7 @@ function setAdminFormValues(customer) {
   byId("petMedicalNeeds").value = customer?.medicalNeeds || "";
   byId("petMedicalHistory").value = customer?.medicalHistory || "";
   byId("petProfileImage").value = customer?.profileImage || "";
+  byId("quoteLanguage").value = normalizeQuoteLanguage(customer?.quoteLanguage);
 }
 
 function resolveCurrentPetCodeword() {
@@ -616,22 +639,20 @@ function closePetAccountPage(pushHash = true) {
 
 byId("calcBtn").addEventListener("click", async () => {
   const petName = byId("petName").value.trim();
+  const petCodeword = petName.toLowerCase();
   const ownerInput = byId("petParentName").value.trim();
   const discountCode = byId("discountCode").value.trim().toLowerCase();
-  const customer = await getCustomerByCodeword(petName);
-  const hydrated = hydrateCustomerProfile(customer || { petCodeword: petName }, petName);
-  const knownProfile = await hasKnownPetProfile(petName);
+  const customer = await getCustomerByCodeword(petCodeword);
+  const hydrated = hydrateCustomerProfile(customer || { petCodeword }, petCodeword);
+  const knownProfile = await hasKnownPetProfile(petCodeword);
   const ownerName = formatGreetingNames(pickCustomerNameParts(hydrated)) || ownerInput;
-  const baseline =
-    hydrated?.baseProfile ||
-    LEGACY_PET_PROFILES[petName.toLowerCase()] ||
-    DISCOUNT_CODE_BASELINES[discountCode] ||
-    40;
+  const baseline = resolveCalculatorBaseline(hydrated, petCodeword, discountCode);
   const dropoff = new Date(byId("dropoff").value);
   const pickup = new Date(byId("pickup").value);
   const constantCompany = knownProfile
     ? Boolean(hydrated.defaultCompanyNeed)
     : Boolean(byId("companyChoiceC")?.checked);
+  const medicalNeeds = Boolean(customer) && petHasMedicalNeedsFromProfile(hydrated);
   const now = new Date();
   const isFutureEstimate = dropoff > now && pickup > now;
   const daysUntilStart = isFutureEstimate ? daysBetween(now, dropoff) : Infinity;
@@ -643,44 +664,34 @@ byId("calcBtn").addEventListener("click", async () => {
   const bookingFormWrap = byId("bookingRequestFormWrap");
 
   try {
-    const quote = quoteStay({ dropoff, pickup, baseline, constantCompany });
-    const greetingName = ownerName || "pet parent";
-    const lines = [
-      `Hi ${greetingName}, here is the breakdown for ${petName || "your pet"}'s stay.`,
-      "",
-      `Drop-off: ${fmtDate(dropoff)}`,
-      `Pick-up: ${fmtDate(pickup)}`,
-      "",
-      "Blocks:"
-    ];
-    if (isAdmin) lines.splice(1, 0, `Profile baseline: ${fmtMoney(baseline)}`);
-    quote.plan.items.forEach((item) => {
-      lines.push(`- ${item.type}: ${fmtDate(item.start)} -> ${fmtDate(item.end)} = ${fmtMoney(item.cost)}`);
+    const quote = quoteStay({ dropoff, pickup, baseline, constantCompany, medicalNeeds });
+    const quoteLang = resolveQuoteLanguage(customer, hydrated);
+    const petLabel = hydrated.petDisplayName || petCodeword || petName;
+
+    byId("quoteOutput").textContent = buildQuoteBreakdown({
+      lang: quoteLang,
+      greetingName: ownerName,
+      petLabel,
+      petCodeword,
+      dropoff,
+      pickup,
+      quote,
+      baseline,
+      customer,
+      medicalNeeds,
+      isAdmin,
+      lastMinuteSurcharge,
+      knownProfile,
+      ownerName,
+      fmtDate
     });
-    lines.push(
-      "",
-      `Early surcharge: ${fmtMoney(quote.surcharges.early)}`,
-      `Late drop-off surcharge: ${fmtMoney(quote.surcharges.lateDropoff)}`,
-      `Seasonal surcharge: ${fmtMoney(quote.surcharges.seasonal)}`,
-      `Constant-company surcharge: ${fmtMoney(quote.surcharges.constantCompanyFee)}`,
-      `Last-minute surcharge: ${fmtMoney(lastMinuteSurcharge)}`,
-      `Total: ${fmtMoney(quote.total + lastMinuteSurcharge)}`,
-      "",
-      knownProfile && petName
-        ? `Thanks for trusting me with caring for ${petName}.`
-        : ownerName
-          ? `Thanks for your interest in my services, ${ownerName}.`
-          : "Thanks for your interest in my services.",
-      "Amy"
-    );
-    byId("quoteOutput").textContent = lines.join("\n");
     byId("quoteOutput").classList.remove("hidden");
     if (isFutureEstimate) {
-      calcModeMessage.textContent = withinFortyEightHours
-        ? "This is a future estimate and includes a last-minute booking surcharge (+10 EUR) because the stay starts within 48 hours."
-        : withinSevenDays
-          ? "This is a future estimate and includes a short-notice surcharge (+5 EUR) because the stay starts within 7 days."
-          : "This is a future estimate. If you would like to proceed, send a booking request.";
+      calcModeMessage.textContent = getCalcModeMessageText(quoteLang, {
+        withinFortyEightHours,
+        withinSevenDays,
+        isFutureEstimate
+      });
       bookRequestBtn.classList.remove("hidden");
       bookRequestBtn.onclick = () => {
         bookingFormWrap.classList.remove("hidden");
@@ -688,23 +699,24 @@ byId("calcBtn").addEventListener("click", async () => {
         byId("quoteOutput").classList.add("hidden");
         byId("bookingName").value = ownerName;
         byId("bookingEmail").value = customer?.ownerEmail || "";
-        byId("bookingPet").value = petName || "";
+        byId("bookingPet").value = petLabel || petName || "";
         byId("bookingDropoff").value = fmtDate(dropoff);
         byId("bookingPickup").value = fmtDate(pickup);
         byId("bookingEstimate").value = fmtMoney(quote.total + lastMinuteSurcharge);
-        byId("bookingMessage").value = [
-          "Hi Amy,",
-          "",
-          `I'd like to book a stay for ${petName || "my pet"}.`,
-          `Drop-off: ${fmtDate(dropoff)}`,
-          `Pick-up: ${fmtDate(pickup)}`,
-          "",
-          "Thank you!"
-        ].join("\n");
+        byId("bookingMessage").value = defaultBookingRequestMessage(quoteLang, {
+          petName: petLabel || petName,
+          dropoff,
+          pickup,
+          fmtDate
+        });
         bookingFormWrap.scrollIntoView({ behavior: "smooth", block: "start" });
       };
     } else {
-      calcModeMessage.textContent = "This calculation is treated as payment-oriented for a past/current stay.";
+      calcModeMessage.textContent = getCalcModeMessageText(quoteLang, {
+        withinFortyEightHours,
+        withinSevenDays,
+        isFutureEstimate
+      });
       bookRequestBtn.classList.add("hidden");
       bookRequestBtn.onclick = null;
       bookingFormWrap.classList.add("hidden");
@@ -738,6 +750,7 @@ byId("viewPetAccountBtn").addEventListener("click", async () => {
 
 byId("closePetAccountBtn").addEventListener("click", () => {
   closePetAccountPage(true);
+  if (activePetCodeword) byId("petName").value = activePetCodeword;
   byId("calculator").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
@@ -761,6 +774,7 @@ byId("saveCustomerBtn").addEventListener("click", async () => {
   const medicalNeeds = byId("petMedicalNeeds").value.trim();
   const medicalHistory = byId("petMedicalHistory").value.trim();
   const profileImage = byId("petProfileImage").value.trim();
+  const quoteLanguage = byId("quoteLanguage").value;
   if (!customerNames.length || !petCodeword) {
     byId("accountOutput").textContent = "Please provide at least one pet parent name and a pet codeword.";
     return;
@@ -784,7 +798,8 @@ byId("saveCustomerBtn").addEventListener("click", async () => {
     friends,
     medicalNeeds,
     medicalHistory,
-    profileImage
+    profileImage,
+    quoteLanguage
   });
   writeUiState({ lastPetCodeword: petCodeword.toLowerCase() });
   await renderAccount(petCodeword);
@@ -793,10 +808,13 @@ byId("saveCustomerBtn").addEventListener("click", async () => {
     await openPetAccountPage(activePetCodeword, false);
   }
   if (serverError) {
+    window.alert(`Could not save to the server: ${serverError}`);
     const hint =
       "If the error mentions `customer_names` or a missing column, run the SQL in `db/migration_002_customer_names.sql` in the Neon console, then save again.\n\n";
-    byId("accountOutput").textContent = `Server save may have failed: ${serverError}\n\n${hint}${byId("accountOutput").textContent}`;
+    byId("accountOutput").textContent = `Server save failed: ${serverError}\n\n${hint}${byId("accountOutput").textContent}`;
+    return;
   }
+  byId("accountOutput").textContent = `Saved ${petCodeword} to the server.`;
 });
 
 byId("addLedgerBtn").addEventListener("click", async () => {
@@ -931,6 +949,10 @@ window.addEventListener("hashchange", async () => {
     isAdmin = true;
     byId("admin").classList.remove("hidden");
     byId("adminState").textContent = "Admin mode unlocked.";
+  }
+
+  if (ui.lastPetCodeword && byId("petName") && !byId("petName").value.trim()) {
+    byId("petName").value = ui.lastPetCodeword;
   }
 
   const hash = window.location.hash.replace(/^#/, "");

@@ -64,7 +64,7 @@
       <h2 class="title-standard title-blue">Stay Calculator</h2>
       <p class="muted-line">Transparent pricing with your assigned pet profile and full breakdown.</p>
       <div class="grid">
-        <label>Pet name <input id="petName" type="text" placeholder="e.g. Luna" /></label>
+        <label>Pet codeword <input id="petName" type="text" placeholder="e.g. snoepje" title="Use the pet’s account codeword (lowercase), not a nickname." /></label>
         <label>Pet parent name <input id="petParentName" type="text" placeholder="e.g. Alex" /></label>
         <label>Discount code (optional) <input id="discountCode" type="text" placeholder="e.g. FRIEND35" /></label>
         <label>Drop-off <input id="dropoff" type="datetime-local" /></label>
@@ -188,6 +188,12 @@
         <label>Pet parent 1 (name) <input id="customerName" type="text" /></label>
         <label>Pet parent 2 (optional) <input id="customerName2" type="text" placeholder="Second owner, for couples" /></label>
         <label>Pet codeword <input id="petCodeword" type="text" /></label>
+        <label>Quote language (calculator message)
+          <select id="quoteLanguage">
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+          </select>
+        </label>
         <label>Pet display name <input id="petDisplayName" type="text" placeholder="e.g. Bubbles" /></label>
         <label>Profile image URL (optional) <input id="petProfileImage" type="text" placeholder="./assets/pets/bubbles/profile.png" /></label>
         <label>Base profile

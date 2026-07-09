@@ -1,4 +1,5 @@
 import { customerNamesFromRequestBody, joinedFromNames } from "../_lib/customerNames.js";
+import { normalizeQuoteLanguage } from "../_lib/quoteLanguage.js";
 import { normalizeCodeword, sql, toFiniteNumber, toIsoStringOrNull } from "../_lib/db.js";
 import { methodNotAllowed, parseJsonBody, sendJson } from "../_lib/http.js";
 
@@ -24,11 +25,14 @@ export default async function handler(req, res) {
       ? (explicitRef || previous[0]?.age_reference_date || new Date().toISOString())
       : null;
 
+    const quoteLanguage = normalizeQuoteLanguage(body.quoteLanguage);
+
     await db`
       INSERT INTO pets (
         codeword, customer_name, customer_names, pet_display_name, base_profile, default_company_need,
         age_reference_years, age_reference_date, owner_email, owner_phone, emergency_phone,
-        vet_address, likes, dislikes, allergies, friends, medical_needs, medical_history, profile_image, updated_at
+        vet_address, likes, dislikes, allergies, friends, medical_needs, medical_history, profile_image,
+        quote_language, updated_at
       ) VALUES (
         ${codeword}, ${customerName}, ${customerNamesJson}, ${String(body.petDisplayName || codeword).trim()},
         ${toFiniteNumber(body.baseProfile, 40)}, ${Boolean(body.defaultCompanyNeed)},
@@ -38,7 +42,7 @@ export default async function handler(req, res) {
         ${String(body.likes || "").trim()}, ${String(body.dislikes || "").trim()},
         ${String(body.allergies || "").trim()}, ${String(body.friends || "").trim()},
         ${String(body.medicalNeeds || "").trim()}, ${String(body.medicalHistory || "").trim()},
-        ${String(body.profileImage || "").trim()}, now()
+        ${String(body.profileImage || "").trim()}, ${quoteLanguage}, now()
       )
       ON CONFLICT (codeword)
       DO UPDATE SET
@@ -60,6 +64,7 @@ export default async function handler(req, res) {
         medical_needs = EXCLUDED.medical_needs,
         medical_history = EXCLUDED.medical_history,
         profile_image = EXCLUDED.profile_image,
+        quote_language = EXCLUDED.quote_language,
         updated_at = now()
     `;
 

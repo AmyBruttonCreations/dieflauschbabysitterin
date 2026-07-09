@@ -1,4 +1,5 @@
 import { customerNamesFromRow, joinedFromNames } from "./customerNames.js";
+import { normalizeQuoteLanguage } from "./quoteLanguage.js";
 import { sql } from "./db.js";
 import { boolFromRow, rowVal } from "./petsRow.js";
 
@@ -97,7 +98,8 @@ export async function getAccountSnapshot(codeword) {
       friends: String(rowVal(customer, "friends", "friends") ?? "").trim(),
       medicalNeeds: String(rowVal(customer, "medical_needs", "medicalNeeds") ?? "").trim(),
       medicalHistory: String(rowVal(customer, "medical_history", "medicalHistory") ?? "").trim(),
-      profileImage: String(rowVal(customer, "profile_image", "profileImage") ?? "").trim()
+      profileImage: String(rowVal(customer, "profile_image", "profileImage") ?? "").trim(),
+      quoteLanguage: normalizeQuoteLanguage(rowVal(customer, "quote_language", "quoteLanguage"))
     },
     ledger: ledgerWithBalance,
     stays,

@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run dev:full",
+    "dev": "node scripts/dev-local.mjs",
     "dev:full": "vercel dev",
+    "dev:vercel": "vercel dev",
     "dev:static": "serve .",
     "test": "node --test",
     "start": "serve .",

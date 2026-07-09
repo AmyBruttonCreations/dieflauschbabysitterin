@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS pets (
   medical_needs TEXT NOT NULL DEFAULT '',
   medical_history TEXT NOT NULL DEFAULT '',
   profile_image TEXT NOT NULL DEFAULT '',
+  quote_language TEXT NOT NULL DEFAULT 'en',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

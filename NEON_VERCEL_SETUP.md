@@ -16,7 +16,16 @@ In your Vercel project settings, add:
 
 Also add this variable in local `.env.local` for testing.
 
-## 3) API routes now available
+## Local development (`npm run dev`)
+
+`npm run dev` starts a **local server on http://localhost:3000** (static site + `/api/*`). It reads `DATABASE_URL` from `.env.local` and does **not** require `vercel login`.
+
+If the browser shows **Error -102** on localhost, the dev server is not running — run `npm run dev` in the project folder and leave that terminal open.
+
+**Optional:** `npm run dev:vercel` uses Vercel CLI (needs `npx vercel login` once). If you see *“token is not valid”*, remove or ignore stale `VERCEL_OIDC_TOKEN` in `.env.local` and log in with `vercel login`.
+
+**UI only (no API):** `npm run dev:static`
+
 
 - `GET /api/health`
 - `GET /api/account?codeword=<petCodeword>`
